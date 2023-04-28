@@ -1,0 +1,7 @@
+#add to config.txt
+enable_uart=1
+dtoverlay=pi3-miniuart-bt
+dtoverlay=uart5
+dtoverlay=uart4
+dtoverlay=uart3
+dtoverlay=uart2

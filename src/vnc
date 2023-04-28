@@ -1,0 +1,2 @@
+#!/bin/bash
+x11vnc -auth guess -forever -loop -noxdamage -repeat -rfbauth /home/ceadmin/.vnc/passwd -rfbport 5900 -shared

@@ -1,0 +1,35 @@
+sudo chmod +666 /dev/ttyAMA0
+sudo chmod +666 /dev/ttyAMA1
+sudo chmod +666 /dev/ttyAMA2
+sudo chmod +666 /dev/ttyUSB0
+sudo chmod +666 /dev/ttyAMA3
+sudo chmod +666 /dev/ttyAMA4
+stty sane  38400 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA0
+stty sane  38400 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA1
+stty sane  38400 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA2
+stty sane  38400 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA3
+stty sane  38400 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA4
+stty sane  38400 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyUSB0
+
+3 different terminals:
+while true;do echo -n -e "USB0 $(date)\n">/dev/ttyUSB0; sleep 0.5; done
+while true;do echo -n -e "AMA0 $(date)\n">/dev/ttyAMA0; sleep 0.5; done
+while true;do echo -n -e "AMA3 $(date)\n">/dev/ttyAMA3; sleep 0.5; done
+
+
+3 different terminals:
+cat /dev/ttyAMA0
+cat /dev/ttyAMA3
+cat /dev/ttyUSB0
+
+ 
+
+ 
+
+Sesssion B
+sudo stty sane  38400 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyUSB0
+
+while true;do echo -n -e "$(date)\n">/dev/ttyUSB0; sleep 0.5; done
+
+{'l': [{'n': '2', 'v': 'MISCF'}, {'n': '2', 'v': '1225'}, {'n': '3', 'v': '169'}, {'n': '5', 'v': '15:03'}, {'n': 'VtID', 'v': '840 3510072467'}, {'n': '7', 'v': 'MAR 23 2023'}, {'n': 'Type', 'v': 'INVASIVE'}, {'n': 'Mode', 'v': 'A/C-VC'}, {'n': 'MType', 'v': 'VC'}, {'n': 'SType', 'v': ''}, {'n': '12', 'v': 'V-Trig'}, {'n': 'SetRate', 'v': '9.0'}, {'n': 'SetVT', 'v': '1.520'}, {'n': 'SetFlow', 'v': '120.0'}, {'n': 'SetFIO2', 'v': '21'}, {'n': '17', 'v': ''}, {'n': 'SetPEEP', 'v': '5.0'}, {'n': '19', 'v': '0.0'}, {'n': '20', 'v': '20'}, {'n': '21', 'v': '0.580'}, {'n': '22', 'v': '10.0'}, {'n': '23', 'v': '70.0'}, {'n': '24', 'v': '100'}, {'n': '25', 'v': ''}, {'n': '26', 'v': ''}, {'n': '27', 'v': 'RAMP'}, {'n': '28', 'v': 'VC'}, {'n': '29', 'v': ''}, {'n': '30', 'v': ''}, {'n': 'SetPSV', 'v': ''}, {'n': '32', 'v': 'SQUARE'}, {'n': '33', 'v': 'OFF'}, {'n': '34', 'v': '51'}, {'n': '35', 'v': ''}, {'n': '36', 'v': '24.500'}, {'n': '37', 'v': '0.470'}, {'n': '38', 'v': '1900'}, {'n': '39', 'v': 'OFF'}, {'n': '40', 'v': '1900'}, {'n': '41', 'v': 'OFF'}, {'n': '42', 'v': 'OFF'}, {'n': '43', 'v': ''}, {'n': '44', 'v': '10.3'}, {'n': '45', 'v': '8.8'}, {'n': 'SetP', 'v': ''}, {'n': 'SetTi', 'v': ''}, {'n': '48', 'v': ''}, {'n': '49', 'v': ''}, {'n': '50', 'v': ''}, {'n': '51', 'v': ''}, {'n': '52', 'v': ''}, {'n': '53', 'v': 'HME'}, {'n': '54', 'v': ''}, {'n': '55', 'v': 'Disabled'}, {'n': '56', 'v': '20'}, {'n': '57', 'v': ''}, {'n': '58', 'v': ''}, {'n': '59', 'v': ''}, {'n': '60', 'v': '43.0'}, {'n': '61', 'v': ''}, {'n': '62', 'v': ''}, {'n': '63', 'v': ''}, {'n': '64', 'v': ''}, {'n': '65', 'v': ''}, {'n': '66', 'v': 'ADULT'}, {'n': '67', 'v': ''}, {'n': '68', 'v': ''}, {'n': '69', 'v': '28.0'}, {'n': 'TotBrRate', 'v': '9.987'}, {'n': 'VTe', 'v': '1397.0'}, {'n': 'MinVent', 'v': '12.600'}, {'n': 'PIP', 'v': '28.0'}, {'n': 'Ti', 'v': '7.8'}, {'n': '75', 'v': '7.80'}, {'n': '76', 'v': '1:7.80'}, {'n': '77', 'v': ''}, {'n': 'VTi', 'v': ''}, {'n': 'PEEPi', 'v': ''}, {'n': '80', 'v': ''}, {'n': '81', 'v': ''}, {'n': '82', 'v': ''}, {'n': '83', 'v': ''}, {'n': '84', 'v': ''}, {'n': 'RSBI', 'v': ''}, {'n': 'TiTtot', 'v': ''}, {'n': 'PEEP', 'v': '4.8'}, {'n': '88', 'v': ''}, {'n': '89', 'v': ''}, {'n': '90', 'v': '0.0'}, {'n': '91', 'v': '0.0'}, {'n': 'Raw', 'v': '0.0'}, {'n': '93', 'v': '0.0'}, {'n': 'Pplat', 'v': '0.0'}, {'n': '95', 'v': ''}, {'n': '96', 'v': '134.0'}, {'n': '97', 'v': '5.6'}, {'n': '98', 'v': ''}, {'n': '99', 'v': '82.0'}, {'n': '100', 'v': '0.0'}, {'n': '101', 'v': ''}, {'n': 'NIF', 'v': '0.0'}, {'n': '103', 'v': '0.0'}, {'n': '104', 'v': '0.000'}, {'n': '105', 'v': 'OFF'}, {'n': '106', 'v': 'NORMAL'}, {'n': '107', 'v': 'NORMAL'}, {'n': '108', 'v': 'NORMAL'}, {'n': '109', 'v': 'NORMAL'}, {'n': '110', 'v': 'NORMAL'}, {'n': '111', 'v': 'NORMAL'}, {'n': '112', 'v': 'NORMAL'}, {'n': '113', 'v': 'NORMAL'}, {'n': '114', 'v': 'NORMAL'}, {'n': '115', 'v': 'NORMAL'}, {'n': '116', 'v': 'NORMAL'}, {'n': '117', 'v': 'NORMAL'}, {'n': '118', 'v': 'NORMAL'}, {'n': '119', 'v': 'NORMAL'}, {'n': '120', 'v': 'NORMAL'}, {'n': '121', 'v': 'NORMAL'}, {'n': '122', 'v': 'LOW'}, {'n': '123', 'v': 'NORMAL'}, {'n': '124', 'v': 'NORMAL'}, {'n': '125', 'v': 'NORMAL'}, {'n': '126', 'v': 'NORMAL'}, {'n': '127', 'v': 'RESET'}, {'n': '128', 'v': 'NORMAL'}, {'n': '129', 'v': 'NORMAL'}, {'n': '130', 'v': 'NORMAL'}, {'n': '131', 'v': 'NORMAL'}, {'n': '132', 'v': 'NORMAL'}, {'n': '133', 'v': 'NORMAL'}, {'n': '134', 'v': 'NORMAL'}, {'n': '135', 'v': 'NORMAL'}, {'n': '136', 'v': 'NORMAL'}, {'n': '137', 'v': 'NORMAL'}, {'n': '138', 'v': 'NORMAL'}, {'n': '139', 'v': 'NORMAL'}, {'n': '140', 'v': 'NORMAL'}, {'n': '141', 'v': 'NORMAL'}, {'n': '142', 'v': 'NORMAL'}, {'n': '143', 'v': 'NORMAL'}, {'n': '144', 'v': 'NORMAL'}, {'n': '145', 'v': 'NORMAL'}, {'n': '146', 'v': 'NORMAL'}, {'n': '147', 'v': 'NORMAL'}, {'n': '148', 'v': 'NORMAL'}, {'n': '149', 'v': 'NORMAL'}, {'n': '150', 'v': 'NORMAL'}, {'n': '151', 'v': 'NORMAL'}, {'n': '152', 'v': 'NORMAL'}, {'n': '153', 'v': 'NORMAL'}, {'n': '154', 'v': ''}, {'n': '155', 'v': ''}, {'n': '156', 'v': 'OFF'}, {'n': '157', 'v': ''}, {'n': '158', 'v': ''}, {'n': '159', 'v': ''}, {'n': '160', 'v': ''}, {'n': '161', 'v': ''}, {'n': '162', 'v': ''}, {'n': '163', 'v': ''}, {'n': '164', 'v': ''}, {'n': '165', 'v': ''}, {'n': '166', 'v': ''}, {'n': '167', 'v': ''}, {'n': '168', 'v': ''}, {'n': '169', 'v': ''}, {'n': '170', 'v': ''}, {'n': '171', 'v': ''}, {'n': '172', 'v': ''}, {'n': '173', 'v': ''}, {'n': '174', 'v': '\x03'}, {'n': 'fspon', 'v': '0.987000'}, {'n': 'AnyAlarmActive', 'v': '0'}], 'n': 'v', 'v': '1680552767308'}
+
