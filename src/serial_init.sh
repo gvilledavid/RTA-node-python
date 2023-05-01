@@ -1,4 +1,6 @@
 #!/bin/bash
+#add ceadmin to groups:
+#ceadmin adm dialout cdrom sudo dip video plugdev input lxd lpadmin sambashare spi i2c gpio spiuser 
 devices=("ttyAMA0" "ttyAMA1" "ttyAMA2" "ttyAMA3" "ttyAMA4" "ttyUSB0")
 mkdir -p /dev/piUART/status
 for i in ${!devices[@]}; do
