@@ -262,3 +262,4 @@ if __name__ == "__main__":
     executiontime=(time.time() - starttime)
     print(f"pulse is:\n\n{to_json(pulse)}\n\n\nlegacy topic is:\n\n{legacy_topic}\n\n\nlegacy topic message is:\n\n{legacy_pulse}\n\n\nleaf pulse is:\n\n{to_json(leaf_pulse)}\n\n\nbrief node pulse is :\n\n{to_json(brief)}\n\n\n")
     print('Execution time in seconds: ' + str(executiontime))
+

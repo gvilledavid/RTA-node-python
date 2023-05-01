@@ -1,0 +1,16 @@
+NODE PULSE:
+{"Static-hostname": "ceNodeDev011", "Icon-name": "computer", "Machine-ID": "ce3147d68c974748af568efd4c19a07d", "Boot-ID": "93bcab28f95641649f163b63f56e0ef5", "Operating-System": "Ubuntu 22.04.2 LTS", "Kernel": "Linux 5.15.0-1027-raspi", "Architecture": "arm64", "Model": "Raspberry Pi 4 Model B Rev 1.5", "Ram": "7995476", "disk-size": "58.9G", "disk-avail": 44281056, "networking": [{"name": "eth0", "mac": "e4:5f:01:db:9e:8c", "ipv4": "", "ipv6": ""}, {"name": "wlan0", "mac": "e4:5f:01:db:9e:8d", "ipv4": "192.168.1.180/16", "ipv6": "fe80::7277:33d9:e9c8:1658/64"}], "temperature": "43.3C", "uptime": "4485.29", "core-voltage": "0.8500V", "throttled-status": ["no-alarms"], "connected-leafs": {"ttyAMA0": "?", "ttyAMA1": "?", "ttyAMA2": "?", "ttyAMA3": "?", "ttyAMA4": "?", "": "?"}, "battery": {"status": "No battery", "Bat": 0, "battery-timeleft": 9999, "AC": "connected", "charge-voltage": 5, "battery-voltage": 0}, "time": {"Local-time": "Mon 2023-05-01 03:20:17 EDT", "Universal-time": "Mon 2023-05-01 07:20:17 UTC", "RTC-time": "n/a", "Time-zone": "America/New_York (EDT, -0400)", "System-clock-synchronized": "yes", "NTP-service": "active", "RTC-in-local-TZ": "yes"}, "timestamp": "1682925617540"}
+
+LEAF PULSE:
+{"UID": "12:54:d3:3b:9e:8d:ttyAMA0", "DID": "35B1500404", "vent-type": "PB980", "baud": 9600, "protocol": "840 DCI", "parent-node": "12:54:d3:3b:9e:8d", "device-status": "IDLE", "timestamp": "1682925617540"}
+
+NODE PULSE BRIEF:
+{"Static-hostname": "ceNodeDev011", "networking": [{"name": "eth0", "mac": "e4:5f:01:db:9e:8c", "ipv4": "", "ipv6": ""}, {"name": "wlan0", "mac": "e4:5f:01:db:9e:8d", "ipv4": "192.168.1.180/16", "ipv6": "fe80::7277:33d9:e9c8:1658/64"}], "connected-leafs": {"ttyAMA0": "?", "ttyAMA1": "?", "ttyAMA2": "?", "ttyAMA3": "?", "ttyAMA4": "?", "": "?"}, "battery": {"Bat": 0}, "timestamp": "1682925617540"}
+
+TOPIC:
+Device/Pulse/e45f01db9e8de45f01db9e8dLeafPulse11/e45f01db9e8d
+
+NODE PULSE LEGACY:
+{"l":[{"l":[{"l":[{"n":"MAC","v":"e45f01db9e8d"}],"n":"wlan0","v":"192.168.1.180/16"}],"n":"if","v":null},{"n":"ID","v":"e45f01db9e8d"},{"n":"Pow","v":"Charging"},{"n":"Bat","v":80},{"n":"IID","v":"1"}],"n":"Time","v":"1682925617540"}
+
+
