@@ -18,10 +18,21 @@ def get_hostname_verbose():
         for param in list if list[-1].find(b':')>0 else list[:-1]:
             a,b=param.split(b':')
             dict[str(a)[2:-1].strip().replace(" ","-")]=str(b)[2:-1].strip()
+        Model=str(subprocess.check_output("cat /proc/cpuinfo",shell=True))[2:-3]
+        Model=Model[Model.find('Model'):]
+        Model=Model[Model.find(":")+2:]
+        dict["Model"]=Model
+        dict["Ram"]=str(subprocess.check_output("free",shell=True))[2:-3].split('\\n')[1].split()[1]
+        drive=str(subprocess.check_output("lsblk |grep mmc",shell=True))[2:-3].split('\\n')[0].split()
+        dict["disk-size"]=drive[3]
+        avail=0
+        for partition in str(subprocess.check_output(f"df |grep \"/dev/{drive[0]}\"",shell=True))[2:-3].split('\\n'):
+            avail=avail+int(partition.split()[3])
+        dict["disk-avail"]=avail
+
     except:
         print("call to hostnamectl failed")
     return dict
-
 def param_from_iface(iface_str,param):
     #will return "val" if f"{param} {val} " exists in iface_str
     #or will return "val" if iface_str ends in f"{param} {val}"
@@ -47,7 +58,7 @@ def param_from_iface(iface_str,param):
 
 def get_networking():
     stdoutval=str(subprocess.check_output("ip address show",shell=True))[2:-1]
-    list = [ ]
+    list=[]
     link=1
     while len(stdoutval)>3:
         #start_index=0 if link==1 else start_index=2#ignore \\n on following lines
@@ -194,6 +205,11 @@ def generate_node_pulse(legacy=0):
     pulse["networking"]=get_networking()
     hw=get_hardware()
     pulse["temperature"]=hw["temp"]
+    try:
+        uptime=str(subprocess.check_output("cat /proc/uptime",shell=True))[2:-3]
+        pulse["uptime"]=uptime[:uptime.find(" ")]
+    except:
+        pass
     pulse["core-voltage"]=hw["core-voltage"]
     pulse["throttled-status"]=hw["throttled-status"]
     pulse["connected-leafs"]=hw["uarts"]
@@ -239,7 +255,10 @@ def generate_brief_node_pulse(from_dict=0):
     brief_pulse["timestamp"]=verbose_pulse["timestamp"]
     return brief_pulse
 if __name__ == "__main__":
+    starttime=time.time()
     pulse,legacy_topic,legacy_pulse=generate_node_pulse(1)
     leaf_pulse=generate_leaf_pulse()
     brief=generate_brief_node_pulse(pulse)
+    executiontime=(time.time() - starttime)
     print(f"pulse is:\n\n{to_json(pulse)}\n\n\nlegacy topic is:\n\n{legacy_topic}\n\n\nlegacy topic message is:\n\n{legacy_pulse}\n\n\nleaf pulse is:\n\n{to_json(leaf_pulse)}\n\n\nbrief node pulse is :\n\n{to_json(brief)}\n\n\n")
+    print('Execution time in seconds: ' + str(executiontime))
