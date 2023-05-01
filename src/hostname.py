@@ -21,6 +21,7 @@ def get_hostname_verbose():
     except:
         print("call to hostnamectl failed")
     return dict
+
 def param_from_iface(iface_str,param):
     #will return "val" if f"{param} {val} " exists in iface_str
     #or will return "val" if iface_str ends in f"{param} {val}"
@@ -46,7 +47,7 @@ def param_from_iface(iface_str,param):
 
 def get_networking():
     stdoutval=str(subprocess.check_output("ip address show",shell=True))[2:-1]
-    list=[]
+    list = [ ]
     link=1
     while len(stdoutval)>3:
         #start_index=0 if link==1 else start_index=2#ignore \\n on following lines
