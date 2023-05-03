@@ -95,6 +95,3 @@ if __name__ == '__main__':
             aws.publish(node.pulse_topic,node.brief)
             azure.publish(node.pulse_topic,node.brief)
         count+=1
-        
-
-   

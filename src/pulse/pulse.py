@@ -8,9 +8,9 @@ import json
 class pulse:
     def __init__(self):
         self.UID=self.get_networking()[0]["mac"]
-        self.pulse, self.legacy_topic, self.legacy_pulse = self.generate_node_pulse(1)
-        self.brief = self.to_json(self.generate_brief_node_pulse(self.pulse))
-        self.pulse=self.to_json(self.pulse)
+        self.rawpulse, self.legacy_topic, self.legacy_pulse = self.generate_node_pulse(1)
+        self.brief = self.to_json(self.generate_brief_node_pulse(self.rawpulse))
+        self.pulse=self.to_json(self.rawpulse)
         self.legacy_pulse=self.to_json(self.legacy_pulse)
         self.pulse_topic=f"Devices/pulse/{self.UID}"
     def update(self):
