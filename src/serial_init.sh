@@ -9,3 +9,9 @@ for i in ${!devices[@]}; do
 	echo "0" |sudo tee "/dev/piUART/status/${devices[$i]}"
 	echo "/dev/${devices[$i]}"
 done
+
+
+#to call a program in the backgroup and store pid:
+# nohup ./test.sh & echo $! >pid.txt
+#later:
+# kill -9 $(cat pid.txt)ls
