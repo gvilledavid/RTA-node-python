@@ -16,22 +16,18 @@ class MQTT:
         self.was_connected=False
         self.UID=get_mac("eth0")
         self.status="DISCONNECTED"
-        
         #topic stuff
         self.status_topic="Devices/status"
         self.command_topic=f"Devices/commands/{self.UID}"
         self.pulse_topic=f"Pulse/leafs/{self.UID}"
         self.message_topic=f"test/{self.UID}"
         self.subscription_topics=[(self.command_topic,1),(self.pulse_topic,1),(self.message_topic,1)]
-        
         #queues
         self.commandQueue=queue.PriorityQueue()
         self.messageQueue=queue.PriorityQueue()
-        
         #Authentication
         self.secrets = get_secrets(brokerName)
         self.client = self.connect_mqtt()
-
     def connect_mqtt(self):
         def on_connect(client, userdata, flags, rc):
             if rc == 0:#connected successfully
@@ -46,7 +42,6 @@ class MQTT:
                 self.publish("Devices/status")
                 self.was_connected=True
                 self.client.publish(self.pulse_topic,"Reconnected",qos=1,retain=True)
-
             else:
                 print("Failed to connect, return code %d\n", rc)
             print( userdata,flags,rc) #None {'session present': 0} 0 on good
@@ -57,7 +52,6 @@ class MQTT:
                 self.message_callback(client, userdata, message)
             elif(message.topic==self.command_topic):
                 self.command_callback(client, userdata, message)
-
         def on_disconnect(client,two,three):
             print("Disconnected")
             self.is_connected=False
@@ -71,7 +65,6 @@ class MQTT:
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         client.tls_set_context(context)
-
         client.on_connect = on_connect
         client.on_message = on_message
         client.on_connect_fail = on_connect_fail
@@ -81,14 +74,13 @@ class MQTT:
             #client.username_pw_set("ceadmin","Test32607")
             #print(f"|{self.secrets.username}|{self.secrets.password if self.secrets.password else None}|")
         client.will_set(self.pulse_topic,"Disconnected, will sent",qos=1,retain=True)
-        client.connect(self.secrets.broker, self.secrets.port)
+        client.connect(self.secrets.address, self.secrets.port)
         client.loop_start()
         while not self.is_connected: pass
         client.subscribe(self.message_topic,1)
         #client.message_callback_add(f"Devices/commands/{self.UID}", self.command_callback)
         client.subscribe(self.command_topic,1)
         return client
-    
     def command_callback(self,client, userdata, message):
         print(
             f"Command {message.payload}, {message.topic=},{message.qos=},{message.retain=} ")
@@ -142,13 +134,13 @@ class get_secrets():
             print(f"address.txt for {self.broker} does not exist or is not formatted correctly.")
         self.cert_file = os.path.join(root_dir, broker, "cert.pem")
         self.key_file = os.path.join(root_dir, broker, "private.pem")
+        self.CA_file = os.path.join(root_dir, broker, "CA.pem")
         self.using_CA = os.path.isfile(self.CA_file)
-        self.CA_file=os.path.join(root_dir, broker, "CA.pem")
         #print(self.cert_file,self.key_file)
         self.cert = self.parse_pem(self.cert_file)
         self.key = self.parse_pem(self.key_file)
-        self.CA=self.parse_pem(self.CA_file)
-
+        if self.using_CA:
+            self.CA=self.parse_pem(self.CA_file)
     def parse_pem(self, file):
         if(not os.path.isfile(file)):
             raise Exception(f"{file} does not exist")
@@ -202,7 +194,7 @@ if __name__ == '__main__':
     # azure = MQTT(get_secrets("Azure"))
     # aws = MQTT(get_secrets("AWS"))
     mac_address="123"
-    broker = MQTT("AWS",mac_address)
+    broker = MQTT("AWS")
     # azure.sleep_time=1
     # node=pulse()
     # node.update()

@@ -24,7 +24,7 @@ cat /dev/ttyUSB0
 
  
 
- 
+ do raspi-config/ interfaces/ enable uart instead
 
 Sesssion B
 sudo stty sane  38400 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyUSB0

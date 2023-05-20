@@ -10,6 +10,16 @@ for i in ${!devices[@]}; do
 	echo "/dev/${devices[$i]}"
 done
 
+sudo adduser ceadmin dialout
+
+
+groups=("adm" "dialout" "cdrom" "sudo" "dip" "video" "plugdev" "input" "lxd" "lpadmin" "sambashare" "spi" "i2c" "gpio" "spiuser")
+for i in ${!groups[@]}; do
+	sudo adduser ceadmin "${groups[$i]}"
+	echo "adding group ${groups[$i]}"
+done
+
+
 
 #to call a program in the backgroup and store pid:
 # nohup ./test.sh & echo $! >pid.txt
