@@ -16,18 +16,22 @@ class MQTT:
         self.was_connected=False
         self.UID=get_mac("eth0")
         self.status="DISCONNECTED"
+        
         #topic stuff
         self.status_topic="Devices/status"
         self.command_topic=f"Devices/commands/{self.UID}"
         self.pulse_topic=f"Pulse/leafs/{self.UID}"
         self.message_topic=f"test/{self.UID}"
         self.subscription_topics=[(self.command_topic,1),(self.pulse_topic,1),(self.message_topic,1)]
+        
         #queues
         self.commandQueue=queue.PriorityQueue()
         self.messageQueue=queue.PriorityQueue()
+        
         #Authentication
         self.secrets = get_secrets(brokerName)
         self.client = self.connect_mqtt()
+
     def connect_mqtt(self):
         def on_connect(client, userdata, flags, rc):
             if rc == 0:#connected successfully
@@ -42,6 +46,7 @@ class MQTT:
                 self.publish("Devices/status")
                 self.was_connected=True
                 self.client.publish(self.pulse_topic,"Reconnected",qos=1,retain=True)
+
             else:
                 print("Failed to connect, return code %d\n", rc)
             print( userdata,flags,rc) #None {'session present': 0} 0 on good
@@ -52,6 +57,7 @@ class MQTT:
                 self.message_callback(client, userdata, message)
             elif(message.topic==self.command_topic):
                 self.command_callback(client, userdata, message)
+
         def on_disconnect(client,two,three):
             print("Disconnected")
             self.is_connected=False
@@ -65,6 +71,7 @@ class MQTT:
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         client.tls_set_context(context)
+
         client.on_connect = on_connect
         client.on_message = on_message
         client.on_connect_fail = on_connect_fail
@@ -81,6 +88,7 @@ class MQTT:
         #client.message_callback_add(f"Devices/commands/{self.UID}", self.command_callback)
         client.subscribe(self.command_topic,1)
         return client
+    
     def command_callback(self,client, userdata, message):
         print(
             f"Command {message.payload}, {message.topic=},{message.qos=},{message.retain=} ")
