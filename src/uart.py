@@ -32,3 +32,4 @@ if __name__ == '__main__'
 		check invlaid_list and update /dev/piUART/status/. 
 		
 
+https://stackoverflow.com/questions/182197/how-do-i-watch-a-file-for-changes
