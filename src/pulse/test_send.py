@@ -14,7 +14,7 @@ class MQTT:
         #status and flag stuff
         self.is_connected=False
         self.was_connected=False
-        self.UID=get_mac("eth0")
+        self.UID="test"# get_mac("eth0")
         self.status="DISCONNECTED"
         
         #topic stuff
@@ -43,9 +43,9 @@ class MQTT:
                 else:
                     self.status="CONNECTED"
                     print(f"Connected to MQTT Broker {self.secrets.broker}!")
-                self.publish("Devices/status")
+                self.publish("Devices/status","Connected")
                 self.was_connected=True
-                self.client.publish(self.pulse_topic,"Reconnected",qos=1,retain=True)
+                client.publish(self.pulse_topic,"Reconnected",qos=1,retain=True)
 
             else:
                 print("Failed to connect, return code %d\n", rc)
@@ -67,6 +67,7 @@ class MQTT:
         client = mqtt.Client()
         context = ssl.create_default_context( ssl.Purpose.SERVER_AUTH, 
             cafile= ( self.secrets.CA_file if self.secrets.using_CA else None))#self.secrets.using_CA ? self.secrets.CA_file : None
+        print(self.secrets.CA_file, self.secrets.using_CA)
         context.load_cert_chain(certfile=self.secrets.cert_file, keyfile=self.secrets.key_file, password=None)
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
@@ -82,6 +83,7 @@ class MQTT:
             #print(f"|{self.secrets.username}|{self.secrets.password if self.secrets.password else None}|")
         client.will_set(self.pulse_topic,"Disconnected, will sent",qos=1,retain=True)
         client.connect(self.secrets.address, self.secrets.port)
+        print(self.secrets.address, self.secrets.port)
         client.loop_start()
         while not self.is_connected: pass
         client.subscribe(self.message_topic,1)
@@ -97,6 +99,7 @@ class MQTT:
             print("message topic=", message.topic)
             print("message qos=", message.qos)
             print("message retain flag=", message.retain)
+            print(message )
     def publish(self, topic_root, data,qos=0,retain=False):
         # time.sleep(self.sleep_time)
         # total_count += 1
@@ -144,11 +147,12 @@ class get_secrets():
         self.key_file = os.path.join(root_dir, broker, "private.pem")
         self.CA_file = os.path.join(root_dir, broker, "CA.pem")
         self.using_CA = os.path.isfile(self.CA_file)
-        #print(self.cert_file,self.key_file)
+        print(self.cert_file,self.key_file)
         self.cert = self.parse_pem(self.cert_file)
         self.key = self.parse_pem(self.key_file)
         if self.using_CA:
             self.CA=self.parse_pem(self.CA_file)
+
     def parse_pem(self, file):
         if(not os.path.isfile(file)):
             raise Exception(f"{file} does not exist")
@@ -202,7 +206,7 @@ if __name__ == '__main__':
     # azure = MQTT(get_secrets("Azure"))
     # aws = MQTT(get_secrets("AWS"))
     mac_address="123"
-    broker = MQTT("AWS")
+    broker = MQTT("Azure")
     # azure.sleep_time=1
     # node=pulse()
     # node.update()
