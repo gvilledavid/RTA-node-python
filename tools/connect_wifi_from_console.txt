@@ -1,0 +1,8 @@
+sudo iwlist wlan0 scan | grep ESSID
+wpa_passphrase SSID
+#copy network={} to wpa_supplicant.conf
+sudo systemctl stop NetworkManager
+sudo wpa_supplicant -B -c /etc/wpa_supplicant.conf -i wlan0
+sudo dhclient wlan0
+ip addr show wlan0 |grep -E "inet [0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}" -o
+#now you can ssh to that ip
