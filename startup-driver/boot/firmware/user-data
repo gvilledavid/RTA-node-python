@@ -20,9 +20,9 @@
 # On first boot, set the (default) ubuntu user's password to "ubuntu" and
 # expire user passwords
 chpasswd:
-  expire: false
+  expire: true
   list:
-  - ceadmin:Test
+  - ubuntu:ubuntu
 
 ## Set the system's hostname. Please note that, unless you have a local DNS
 ## setup where the hostname is derived from DHCP requests (as with dnsmasq),
