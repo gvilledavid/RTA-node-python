@@ -6,28 +6,41 @@ import logging
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler, PatternMatchingEventHandler
 
-# import RPi.GPIO
+import RPi.GPIO as GPIO
 
 LOGFILE = "wd/wdlog.txt"  # /home/ceadmin/RTA/logs/wdlog.txt
 STATUSDIR = "wd/"  # /dev/piUART/
 
-
-def en_callback():
-    pass
-
-
-def force_on_callback():
-    pass
-
-
-def force_off_callback():
-    pass
-
+# UART02   tx rx cts rts
+# UART03                 tx rx cts rts
+# UART04                               tx rx cts rts
+# UART05                                             tx rx
+# UART00                                                   tx rx cts rts
+uart_list=[0 ,1, 2,  3,  4, 5, 6,  7,  8, 9, 10, 11, 12,13,14,15,16, 17 ] #BCM
+EN=20 #low to enable chips
+force_on=18 #low to enable autopower down
+force_off=19 #high to enable drivers
+invalid=[24,25,26,27] #goes high when valid rs232 signals detected by reciever
 
 def init_gpios():
-    pass
-
-
+    GPIO.setwarnings(False)
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup( [ EN, force_on, force_off ],GPIO.OUT)
+    GPIO.output(EN, GPIO.LOW)
+    GPIO.output(force_on, GPIO.HIGH)#high will disable auto powerdown
+    GPIO.output(force_off,GPIO.HIGH)
+    GPIO.setup(invalid,GPIO.IN)
+    with open(os.path.join(STATUSDIR,"force_on") )as f:
+        f.write('1')
+    with open(os.path.join(STATUSDIR,"force_off") )as f:
+        f.write('1')
+    with open(os.path.join(STATUSDIR,"enable") )as f:
+        f.write('0')
+    
+        
+    setup interupts
+    [GPIO.input(x) for x in invalid]
+    write to status/ttyAMA
 def check_root():
     return True
     # if os.geteuid() != 0:
@@ -112,12 +125,16 @@ def start_watchdog(logger):
             logger.info(f"event on {event.src_path}")
             if os.path.samefile(event.src_path, os.path.join(STATUSDIR, "force_on")):
                 index = 0
+                pin=force_on
             elif os.path.samefile(event.src_path, os.path.join(STATUSDIR, "force_off")):
                 index = 1
+                pin=force_off
             elif os.path.samefile(event.src_path, os.path.join(STATUSDIR, "enable")):
                 index = 2
+                pin=EN
             else:
                 index = -1
+                pin=None
             if index >= 0:
                 logger.info(f"Previously: {self.last_vals[index]}")
                 with open(event.src_path, "r") as f:
@@ -125,6 +142,9 @@ def start_watchdog(logger):
                     logger.info(f"written val:{val}")
                     if val[0] == ("0" if self.last_vals[index] else "1"):
                         self.last_vals[index] = 0 if self.last_vals[index] else 1
+                        level=GPIO.HIGH if val[0]=='1' else GPIO.LOW
+                        GPIO.output(pin, level)
+                        logger.info(f"GPIO {pin} written {level}")
                         # rpi.gpio(force_on,GPIO.LOW if self.last_vals[index] else gpio.high)
                     elif val[0] == ("1" if self.last_vals[index] else "0"):
                         pass
