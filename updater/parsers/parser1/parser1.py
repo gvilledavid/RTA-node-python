@@ -1,6 +1,6 @@
 import os
 
-VER = 6
+VER = 2
 
 
 class parser1:

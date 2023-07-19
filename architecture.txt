@@ -1,0 +1,56 @@
+RTA architecture
+uart-driver(started with crontab at boot)
+	make directories, scan for available uarts, setup permissions
+	monitor gpios with interrupt and update /dev/piUART/status/ttyAMAn
+	monitor /dev/piUART/[enable,force_on,force_off] and update gpios
+	
+node-manager (second process, started at boot with crontab)
+	connect to mqtt
+	register your own mqtt lwt
+	send pulse info every minute and short pulse every 10 seconds
+	recieve commands
+		update parser(new file, sha256, partx, ofn, filename, classname)
+			kill parser on that interface if it exists, overwrite if it exists, reload, restart interface if it was being used
+		swap interface(device, new parser, new baud)
+			kill interface, call new parser with new settings
+		send pulse immediately() command
+		restart
+		apt update (system update )
+		change hostname
+		
+	main loop:	
+		wait until a device is connected on ttyAMA...
+			start with last known device for this interface
+			otherwse scan all parsers we have.  
+			once scanned, call a start method with:
+				your interface and uid
+				links to your queues. 
+				write to Devices/status or whatever the lwt topic is
+	
+		if you get a command for a device you manage, forward it to the device on recieve queue
+		if you get a message from transmit queue, forward it to mqtt
+			all queues should be lists of [topic,message, qos, retain] with the last two optional
+			pulse info and commands should be sniffed and acted upon if neccesary before sending. 
+		if you detect a disconnected cable then del object. If you detect a stuck/frozen parser also kill it and start it over
+		wait until new connection, start over
+			
+leaf interface (threads started by node manager):
+	scan_baud method
+	detect_device method
+		will scan all bauds, verify a valid response by checksums, model numbers, etc
+	__init__(uid, interface)
+	loop_start()
+	loop_stop()
+	impliment __del__
+	commands:
+		swap baud rate
+		enable all fields (or pass a specific subset to send)
+		change send frequency
+		change pulse send frequency
+		(swap device command cannot be handled here since a parser has no knowledge of other parsers. If we impliment something here it would be as simple as forwarding that to your parent to kill you and restart the right parser.)
+		send pulse now command
+		the leafs can also handle updating dictionaries and maps stuff and reload that, but updating the source that is running the leaf needs to be handled by the node 
+		req_id (we need to impliment this to give unique request ids to devices that ask for it so that we can handle responses. 
+		
+		
+		
