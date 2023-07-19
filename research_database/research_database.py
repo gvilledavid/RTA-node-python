@@ -6,9 +6,11 @@ import ssl
 import json
 import traceback
 import os
+from TestData.py import data
 import re
 import queue
 import subprocess
+import pandas as pd
 class MQTT:
     def __init__(self, brokerName):
         #status and flag stuff
@@ -45,7 +47,7 @@ class MQTT:
                     print(f"Connected to MQTT Broker {self.secrets.broker}!")
                 self.publish("Devices/status","Connected")
                 self.was_connected=True
-                client.publish(self.pulse_topic,"Reconnected",qos=1,retain=True)
+                #client.publish(self.pulse_topic,"Reconnected",qos=1,retain=True)
 
             else:
                 print("Failed to connect, return code %d\n", rc)
@@ -81,7 +83,7 @@ class MQTT:
             client.username_pw_set(self.secrets.username, self.secrets.password if self.secrets.password else None)
             #client.username_pw_set("ceadmin","Test32607")
             #print(f"|{self.secrets.username}|{self.secrets.password if self.secrets.password else None}|")
-        client.will_set(self.pulse_topic,"Disconnected, will sent",qos=1,retain=True)
+        #client.will_set(self.pulse_topic,"Disconnected, will sent",qos=1,retain=True)
         client.connect(self.secrets.address, self.secrets.port)
         print(self.secrets.address, self.secrets.port)
         client.loop_start()
@@ -202,17 +204,62 @@ def get_mac(interface_name):
         mac=str(mac[mac.find(b':'):mac.find(b'\r')])[4:-1].replace("-",":")
         return mac.lower()
 
+
+def json_to_csv(json_data, template_dict, index):
+    json_data = json_data.replace("}{", "}}{{")
+    data = json_data.split("}{")
+    template_dict = check_temp(data, template_dict)
+    i = index+1
+    for x in data:
+        x = json.loads(x)
+        x_dict = dict_merge(x, clear_dict(template_dict))
+        df = pd.DataFrame(x_dict, index=[i])
+        with open("Tempdata.csv", 'a') as f:
+            df.to_csv(f, header=False)
+        i += 1
+        df.to_csv("Tempheader.csv", mode = 'w', header=True)
+
+def dict_merge(dict1, dict2):
+    new_dict = dict2
+    new_dict.update(dict1)
+    return new_dict
+
+def check_temp(data, template_dict):
+    for x in data:
+        x = json.loads(x)
+        template_dict.update(x)
+    return template_dict
+
+def clear_dict(template_data):
+    for i in template_data:
+        template_data[i] = 'NA'
+    return template_data
+
+def get_headers():
+    try:
+        df = pd.read_csv ("Tempheader.csv", index_col=0)
+        index = df.loc[df.index[0]].name
+        dict = df.to_dict(orient='dict')
+    except:
+        dict = {'RR': 'NA'}
+        index = 0
+    return dict, index
+
+
 if __name__ == '__main__':
     # azure = MQTT(get_secrets("Azure"))
     # aws = MQTT(get_secrets("AWS"))
     mac_address="123"
-    broker = MQTT("Azure")
+    broker = MQTT("AWS")
     # azure.sleep_time=1
     # node=pulse()
     # node.update()
+    temp_dict, index = get_headers()
+    json_to_csv("""{"NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5,"Fakedata": 0.444, "NOM_ECG_AMPL_ST_AVF": 0.4}""", temp_dict, index)
+    
     while not broker.is_connected:#wait until connect to publish
         pass
-    broker.publish("Pulse/leafs","Connected",qos=1,retain=True)
+    #broker.publish("Pulse/leafs","Connected",qos=1,retain=True)
     while 1:
         message = input("Type a message, or type \"EXIT\"")
         if (message == "EXIT"):
