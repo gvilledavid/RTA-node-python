@@ -12,10 +12,14 @@ class leaf_runner:
         self.sleep_time = sleep_time
         self.data = 0
         self.runner = Thread(target=self.run, args=())
+        self.running = False
+        self.stopped = True
         print("ending parent constructor")
 
     def run(self):
-        while True:
+        self.running = True
+        self.stopped = False
+        while self.running:
             print(f"Thread {self.name} running.")
             self.output_queue.put(self.data)
             self.data += 1
@@ -23,6 +27,14 @@ class leaf_runner:
                 print(f" {self.name}  recieved {self.command_queue.get()}")
             print(f" {self.name} thread {self.name} sleeping.")
             sleep(self.sleep_time)
+        self.stopped = True
+
+    def stop(self):
+        self.running = False
+        while not self.stopped:
+            pass
+        self.runner.join()
+        print(f"killing {self.name}")
 
 
 class test(leaf_runner):
@@ -42,8 +54,8 @@ if __name__ == "__main__":
         leaf1.command_queue.put(data)
         leaf2.command_queue.put(data)
         data += 1
-        if data >= 20:
-            leaf1.runner.join()
-            leaf2.runner.join()
+        if data >= 5:
+            leaf1.stop()
+            leaf2.stop()
             break
         sleep(5)
