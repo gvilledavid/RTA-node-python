@@ -6,7 +6,7 @@ import ssl
 import json
 import traceback
 import os
-from TestData import data
+from TestData import physDict, settDict, vitDict, csvFiles, csvHeaders
 import re
 import queue
 import subprocess
@@ -205,19 +205,39 @@ def get_mac(interface_name):
         return mac.lower()
 
 
-def json_to_csv(json_data, template_dict, index):
+def json_to_csv(json_data, template_dict, UID_index):
     json_data = json_data.replace("}{", "}}{{")
     data = json_data.split("}{")
     template_dict = check_temp(data, template_dict)
-    i = index+1
+    i = 0
+    x_dict = template_dict
+    count = 0
     for x in data:
         x = json.loads(x)
-        x_dict = dict_merge(x, clear_dict(template_dict))
-        df = pd.DataFrame(x_dict, index=[i])
-        with open("Tempdata.csv", 'a') as f:
-            df.to_csv(f, header=False)
-        i += 1
-        df.to_csv("Tempheader.csv", mode = 'w', header=True)
+        if (x["UID"] != i or type != "Phys"):
+            if (i != 0):
+                df = pd.DataFrame(x_dict, index=[i])
+                make_csv(df)
+                count = 0
+                x_dict = clear_dict(x_dict)
+            i = x["UID"]
+            x_dict = dict_merge(x, clear_dict(template_dict))
+        else:
+            x_dict = dict_merge(x, x_dict)
+            count +=1
+            if (count == 2 and i != 0):
+                df = pd.DataFrame(x_dict, index=[i])
+                make_csv(df)
+                count = 0
+                i = 0
+                x_dict = clear_dict(x_dict)
+
+        
+def make_csv(df):
+    with open(csvFile, 'a') as f:
+        df.to_csv(f, header=False)
+        df.loc[:,:] = ' '
+        df.to_csv(csvHeader, mode = 'w', header=True)
 
 def dict_merge(dict1, dict2):
     new_dict = dict2
@@ -228,23 +248,34 @@ def check_temp(data, template_dict):
     for x in data:
         x = json.loads(x)
         template_dict.update(x)
-    return template_dict
+        return clear_dict(template_dict)
 
 def clear_dict(template_data):
     for i in template_data:
-        template_data[i] = 'NA'
+        template_data[i] = ' '
     return template_data
 
 def get_headers():
     try:
-        df = pd.read_csv ("Tempheader.csv", index_col=0)
+        df = pd.read_csv (csvHeader, index_col=0)
         index = df.loc[df.index[0]].name
         dict = df.to_dict(orient='dict')
     except:
-        dict = {'RR': 'NA'}
+        dict = currDict
         index = 0
     return dict, index
 
+def find_type(type):
+    match type:
+        case "Phys":
+            return physDict, csvFiles["physFile"], csvHeaders["physHeader"]
+        case "Sett":
+            return settDict, csvFiles["settFile"], csvHeaders["settHeader"]
+        case "Vit":
+            return vitDict, csvFiles["vitFile"], csvHeaders["vitHeader"]
+        case _:
+            print ("Error: Incorrect data type")
+            raise Exception
 
 if __name__ == '__main__':
     # azure = MQTT(get_secrets("Azure"))
@@ -254,18 +285,23 @@ if __name__ == '__main__':
     # azure.sleep_time=1
     # node=pulse()
     # node.update()
-    temp_dict, index = get_headers()
-    for x in data:
-        json_to_csv(str(x), temp_dict, index)
-    #json_to_csv("""{"NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5,"Fakedata": 0.444, "NOM_ECG_AMPL_ST_AVF": 0.4}""", temp_dict, index)
+
     
-    while not broker.is_connected:#wait until connect to publish
-        pass
+    global currDict, csvFile, csvHeader, type
+    type = "Sett"
+    currDict, csvFile, csvHeader = find_type(type)
+    temp_dict, UID_index = get_headers()
+    #for x in data:
+        #json_to_csv(str(x), temp_dict, index)
+    json_to_csv("""{"UID": "1", "NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"UID": "1", "BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"UID": "1", "SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"UID" : "2", "NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"UID" : "2", "BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"UID" : "2", "SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"UID" :  "1", "NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"UID" :  "1", "BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"UID" :  "1", "SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"UID" : "2", "BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"UID" :  "2", "NOM_ECG_V_P_C_CNT": 0, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"UID" : "2", "SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5, "NOM_ECG_AMPL_ST_AVF": 0.4}{"UID" :  "2", "NOM_ECG_V_P_C_CNT": 1000, "NOM_ECG_TIME_PD_QT_GL": 336, "NOM_ECG_TIME_PD_QTc": 442, "NOM_ECG_TIME_PD_QTc_DELTA": -11, "NOM_ECG_TIME_PD_QT_HEART_RATE": 104}{"UID" : "2", "BP_SYS": 111, "BP_DIA": 55, "BP": 70, "F0E5": 102}{"UID" : "2", "SPO2": 100.0, "4822": 103, "4BB0": 0.13, "HR": 104, "RR": 27, "NOM_ECG_AMPL_ST_I": 0.2, "NOM_ECG_AMPL_ST_II": 0.5,"Fakedata": 0.444, "NOM_ECG_AMPL_ST_AVF": 0.4}""", temp_dict, UID_index)
+    
+   # while not broker.is_connected:#wait until connect to publish
+   #     pass
     #broker.publish("Pulse/leafs","Connected",qos=1,retain=True)
-    while 1:
-        message = input("Type a message, or type \"EXIT\"")
-        if (message == "EXIT"):
-            break
-        else:
-            broker.publish("test/", message)
-    broker.disconnect()
+    #while 1:
+     #   message = input("Type a message, or type \"EXIT\"")
+    #    if (message == "EXIT"):
+     #       break
+     #   else:
+    #        broker.publish("test/", message)
+    #broker.disconnect()
