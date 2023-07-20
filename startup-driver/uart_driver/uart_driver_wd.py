@@ -23,7 +23,8 @@ force_on = 18  # low to enable autopower down
 force_off = 19  # high to enable drivers
 invalid = [24, 25, 26, 27]  # goes high when valid rs232 signals detected by reciever
 
-global_logger=None
+global_logger = None
+
 
 def init_gpios():
     GPIO.setwarnings(False)
@@ -33,11 +34,11 @@ def init_gpios():
     GPIO.output(force_on, GPIO.HIGH)  # high will disable auto powerdown
     GPIO.output(force_off, GPIO.HIGH)
     GPIO.setup(invalid, GPIO.IN)
-    with open(os.path.join(STATUSDIR, "force_on"),'w') as f:
+    with open(os.path.join(STATUSDIR, "force_on"), "w") as f:
         f.write("1")
-    with open(os.path.join(STATUSDIR, "force_off"),'w') as f:
+    with open(os.path.join(STATUSDIR, "force_off"), "w") as f:
         f.write("1")
-    with open(os.path.join(STATUSDIR, "enable"),'w') as f:
+    with open(os.path.join(STATUSDIR, "enable"), "w") as f:
         f.write("0")
     for pin in invalid:
         GPIO.add_event_detect(pin, GPIO.BOTH, callback=invalid_gpio_handler)
@@ -45,10 +46,13 @@ def init_gpios():
 
 def invalid_gpio_handler(channel):
     print("Gpio handler")
-    global_logger.info(f"ttyAMA{str(channel-invalid[0]+1)} detected, now {GPIO.input(channel)}")
+    global_logger.info(
+        f"ttyAMA{str(channel-invalid[0]+1)} detected, now {GPIO.input(channel)}"
+    )
     os.system(
         f"echo '{GPIO.input(channel)}'> /dev/piUART/status/ttyAMA{str(channel-invalid[0]+1)}"
     )
+
 
 def check_root():
     return not os.geteuid()
@@ -88,9 +92,9 @@ def make_filestructure(logger):
         if interface:
             with open(os.path.join(STATUSDIR, "status/", interface), "w") as f:
                 f.write("0")
-    cmd= f"sudo chmod -R +777 {os.path.normpath(status_path)}"
+    cmd = f"sudo chmod -R +777 {os.path.normpath(status_path)}"
     print(cmd)
-    os.system(cmd )
+    os.system(cmd)
     arr = []
     lls(STATUSDIR, arr)
     print(arr)
@@ -146,7 +150,7 @@ def start_watchdog(logger):
                 logger.info(f"Previously: {self.last_vals[index]}")
                 with open(event.src_path, "r") as f:
                     val = f.readline()
-                    logger.info("written val:"+val.strip('\n'))
+                    logger.info("written val:" + val.strip("\n"))
                     if val[0] == ("0" if self.last_vals[index] else "1"):
                         self.last_vals[index] = 0 if self.last_vals[index] else 1
                         level = GPIO.HIGH if val[0] == "1" else GPIO.LOW
@@ -172,17 +176,22 @@ def main():
     # first verify log directory and start logger
     log_dir, _ = os.path.split(LOGFILE)
     if not os.path.isdir(log_dir):
-        os.system(f"mkdir -p {log_dir}")#os.mkdir(log_dir, mode=0o666)
+        os.system(f"mkdir -p {log_dir}")  # os.mkdir(log_dir, mode=0o666)
         os.system(f"sudo chmod -R +777 {log_dir}")
-    
-    logger =logging.getLogger("Rotating Logger")
+
+    logger = logging.getLogger("Rotating Logger")
     logger.setLevel(logging.DEBUG)
-    handler = logging.handlers.RotatingFileHandler(LOGFILE, 'a',maxBytes=65500,backupCount=5)
-    formatter=logging.Formatter("%(asctime)s, %(msecs)d %(levelname)s - %(message)s",datefmt="%Y-%m-%d %H:%M:%S")
+    handler = logging.handlers.RotatingFileHandler(
+        LOGFILE, "a", maxBytes=65500, backupCount=5
+    )
+    formatter = logging.Formatter(
+        "%(asctime)s, %(msecs)d %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     global global_logger
-    global_logger=logger
+    global_logger = logger
 
     logger.info("Started process.")
     if check_root():
@@ -203,4 +212,3 @@ def main():
 if __name__ == "__main__":
     print("Starting uart driver.")
     main()
-
