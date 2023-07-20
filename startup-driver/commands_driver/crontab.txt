@@ -1,0 +1,4 @@
+#chmod -R +777 /usr/src/RTA 
+#and
+#add this line to sudo crontab, with sudo crontab -e
+@reboot /usr/src/RTA/uart_driver/setup.sh
