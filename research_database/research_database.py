@@ -1,3 +1,4 @@
+import datetime
 import random
 import time
 import paho.mqtt.client as mqtt
@@ -238,15 +239,22 @@ def json_to_csv(json_data, template_dict):
     template_dict = check_temp(json_data, template_dict)
     i = json_data["UID"]
     template_dict = dict_merge(json_data, clear_dict(template_dict))
-    df = pd.DataFrame(template_dict, index=[i])
+    df = pd.DataFrame(template_dict, index=[None])
     make_csv(df)
 
 
 def make_csv(df):
     with open(csvFile, "a") as f:
-        df.to_csv(f, header=False, lineterminator="\n")
+        df.to_csv(f, header=False, index=False, lineterminator="\n")
     df.loc[:, :] = " "
-    df.to_csv(csvHeader, mode="w", header=True, index=False)
+    try:
+        dfr = pd.read_csv(csvHeader)
+        dict1 = df.to_dict(orient="dict")
+        dict2 = dfr.to_dict(orient="dict")
+        if len(dict1) != len(dict2):
+            df.to_csv(csvHeader, mode="w", header=True, index=False)
+    except:
+        df.to_csv(csvHeader, mode="w", header=True, index=False)
 
 
 def dict_merge(dict1, dict2):
@@ -279,11 +287,23 @@ def get_headers():
 def find_type(type):
     match type:
         case "phys":
-            return physDict, csvFiles["physFile"], csvHeaders["physHeader"]
+            return (
+                physDict,
+                csvFiles["physFile"] + str(datetime.datetime.now().date()) + ".csv",
+                csvHeaders["physHeader"],
+            )
         case "settings":
-            return settDict, csvFiles["settFile"], csvHeaders["settHeader"]
+            return (
+                settDict,
+                csvFiles["settFile"] + str(datetime.datetime.now().date()) + ".csv",
+                csvHeaders["settHeader"],
+            )
         case "vitals":
-            return vitDict, csvFiles["vitFile"], csvHeaders["vitHeader"]
+            return (
+                vitDict,
+                csvFiles["vitFile"] + str(datetime.datetime.now().date()) + ".csv",
+                csvHeaders["vitHeader"],
+            )
         case _:
             print("Error: Incorrect data type")
             raise Exception
