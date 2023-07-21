@@ -1,4 +1,3 @@
-
 RTAnode-1.0-1_arm64/usr/local/share/.secrets/*
 !RTAnode-1.0-1_arm64/usr/local/share/.secrets/AWS
 !RTAnode-1.0-1_arm64/usr/local/share/.secrets/Azure
@@ -10,3 +9,4 @@ RTAnode-1.0-1_arm64/usr/local/share/.secrets/cebabletier/*
 !RTAnode-1.0-1_arm64/usr/local/share/.secrets/Azure/address.txt
 !RTAnode-1.0-1_arm64/usr/local/share/.secrets/cebabletier/address.txt
 *.pyc
+.vscode/settings.json
