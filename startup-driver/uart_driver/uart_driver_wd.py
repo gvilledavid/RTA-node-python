@@ -5,11 +5,12 @@ import subprocess
 import logging
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler, PatternMatchingEventHandler
-
+from logging.handlers import RotatingFileHandler
 import RPi.GPIO as GPIO
 
-LOGFILE = "wd/wdlog.txt"  # /home/ceadmin/RTA/logs/wdlog.txt
-STATUSDIR = "wd/"  # /dev/piUART/
+
+LOGFILE = "/home/ceadmin/RTA/logs/wdlog.txt"
+STATUSDIR = "/dev/piUART/"
 
 # UART02   tx rx cts rts
 # UART03                 tx rx cts rts
@@ -22,6 +23,8 @@ force_on = 18  # low to enable autopower down
 force_off = 19  # high to enable drivers
 invalid = [24, 25, 26, 27]  # goes high when valid rs232 signals detected by reciever
 
+global_logger = None
+
 
 def init_gpios():
     GPIO.setwarnings(False)
@@ -31,31 +34,28 @@ def init_gpios():
     GPIO.output(force_on, GPIO.HIGH)  # high will disable auto powerdown
     GPIO.output(force_off, GPIO.HIGH)
     GPIO.setup(invalid, GPIO.IN)
-    with open(os.path.join(STATUSDIR, "force_on")) as f:
+    with open(os.path.join(STATUSDIR, "force_on"), "w") as f:
         f.write("1")
-    with open(os.path.join(STATUSDIR, "force_off")) as f:
+    with open(os.path.join(STATUSDIR, "force_off"), "w") as f:
         f.write("1")
-    with open(os.path.join(STATUSDIR, "enable")) as f:
+    with open(os.path.join(STATUSDIR, "enable"), "w") as f:
         f.write("0")
+    for pin in invalid:
+        GPIO.add_event_detect(pin, GPIO.BOTH, callback=invalid_gpio_handler)
 
-    GPIO.add_event_detect(
-        invalid, GPIO.FALLING, callback=invalid_gpio_connect_handler, bouncetime=1
+
+def invalid_gpio_handler(channel):
+    print("Gpio handler")
+    global_logger.info(
+        f"ttyAMA{str(channel-invalid[0]+1)} detected, now {GPIO.input(channel)}"
     )
-    GPIO.add_event_detect(
-        invalid, GPIO.RISING, callback=invalid_gpio_disconnect_handler, bouncetime=1
+    os.system(
+        f"echo '{GPIO.input(channel)}'> /dev/piUART/status/ttyAMA{str(channel-invalid[0]+1)}"
     )
-
-
-def invalid_gpio_connect_handler(channel):
-    os.system(f"echo '1'> /dev/piUART/status/ttyAMA{str(channel-invalid[0]+1)}")
-
-
-def invalid_gpio_disconnect_handler(channel):
-    os.system(f"echo '0'> /dev/piUART/status/ttyAMA{str(channel-invalid[0]+1)}")
 
 
 def check_root():
-    return os.geteuid()
+    return not os.geteuid()
 
 
 def get_interfaces(logger):
@@ -74,16 +74,14 @@ def get_interfaces(logger):
 
 
 def make_filestructure(logger):
-    if os.path.isdir(STATUSDIR):
-        os.chmod(STATUSDIR, 0o664)
-    else:
-        os.mkdir(STATUSDIR, mode=0o666)
-
+    if not os.path.isdir(STATUSDIR):
+        os.mkdir(STATUSDIR, mode=0o777)
+    os.system(f"sudo chmod -R +777 {os.path.normpath(STATUSDIR)}")
     status_path = os.path.join(STATUSDIR, "status/")
     if os.path.isdir(status_path):
-        os.chmod(status_path, 0o664)
+        os.chmod(status_path, 0o777)
     else:
-        os.mkdir(os.path.join(STATUSDIR, "status/"), mode=0o664)
+        os.mkdir(os.path.join(STATUSDIR, "status/"), mode=0o777)
     with open(os.path.join(STATUSDIR, "enable"), "w") as f:
         f.write("0")
     with open(os.path.join(STATUSDIR, "force_on"), "w") as f:
@@ -94,6 +92,9 @@ def make_filestructure(logger):
         if interface:
             with open(os.path.join(STATUSDIR, "status/", interface), "w") as f:
                 f.write("0")
+    cmd = f"sudo chmod -R +777 {os.path.normpath(status_path)}"
+    print(cmd)
+    os.system(cmd)
     arr = []
     lls(STATUSDIR, arr)
     print(arr)
@@ -132,7 +133,7 @@ def start_watchdog(logger):
             self.last_vals = [0, 0, 0]  # on,off,en
 
         def on_modified(self, event):
-            logger.info(f"event on {event.src_path}")
+            logger.info(f"\n New event on {event.src_path}")
             if os.path.samefile(event.src_path, os.path.join(STATUSDIR, "force_on")):
                 index = 0
                 pin = force_on
@@ -149,7 +150,7 @@ def start_watchdog(logger):
                 logger.info(f"Previously: {self.last_vals[index]}")
                 with open(event.src_path, "r") as f:
                     val = f.readline()
-                    logger.info(f"written val:{val}")
+                    logger.info("written val:" + val.strip("\n"))
                     if val[0] == ("0" if self.last_vals[index] else "1"):
                         self.last_vals[index] = 0 if self.last_vals[index] else 1
                         level = GPIO.HIGH if val[0] == "1" else GPIO.LOW
@@ -168,36 +169,46 @@ def start_watchdog(logger):
     observer = Observer()
     observer.schedule(event_handler, path=STATUSDIR, recursive=False)
     observer.start()
-    return
+    return observer
 
 
 def main():
     # first verify log directory and start logger
     log_dir, _ = os.path.split(LOGFILE)
     if not os.path.isdir(log_dir):
-        os.mkdir(log_dir, mode=0o666)
-    logging.basicConfig(
-        filename=LOGFILE,
-        filemode="a",
-        level=logging.DEBUG,
-        format="%(asctime)s, %(msecs)d %(levelname)s - %(message)s",
+        os.system(f"mkdir -p {log_dir}")  # os.mkdir(log_dir, mode=0o666)
+        os.system(f"sudo chmod -R +777 {log_dir}")
+
+    logger = logging.getLogger("Rotating Logger")
+    logger.setLevel(logging.DEBUG)
+    handler = logging.handlers.RotatingFileHandler(
+        LOGFILE, "a", maxBytes=65500, backupCount=5
+    )
+    formatter = logging.Formatter(
+        "%(asctime)s, %(msecs)d %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    logging.info("Started process.")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    global global_logger
+    global_logger = logger
+
+    logger.info("Started process.")
     if check_root():
-        logging.info("User is root")
+        logger.info("User is root")
     else:
-        logging.critical("User is not root, terminating...")
+        logger.critical("User is not root, terminating...")
         return
-    make_filestructure(logging)
+    make_filestructure(logger)
     init_gpios()
-    observer = start_watchdog(logging)
+    observer = start_watchdog(logger)
     try:
         while True:
             time.sleep(5)
     except:
-        shutdown(logging, observer)
+        shutdown(logger, observer)
 
 
 if __name__ == "__main__":
+    print("Starting uart driver.")
     main()
