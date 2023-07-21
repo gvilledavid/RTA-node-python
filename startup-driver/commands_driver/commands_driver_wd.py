@@ -11,6 +11,11 @@ from logging.handlers import RotatingFileHandler
 LOGFILE = "/home/ceadmin/RTA/logs/commlog.txt"
 STATUSDIR = "/dev/piCOMM/"
 global_logger = None
+cmd_template= {"example":{"default":"terminal command to write default value to this file ",
+                       "change-to":" a string we want to monitor the change to, or 'any'",
+                       "cmd":"command to execute, with '$any$' to replace the read value if above supports it",
+                       "response":'command to generate response, or an empty string for below',
+                       "response-index":'an index for the line of output of cmd to print as a response, '}}
 commands = {"restart":{"default":"echo 0",
                        "change-to":"1",#"any" is reserved, means read the file, monitor for changes from last value, then $any$ can be used to replace in cmd
                        "cmd":"sudo shutdown -r 10",
