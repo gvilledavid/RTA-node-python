@@ -56,19 +56,20 @@ ssh_pwauth: true
 #- robotics: [robot]
 #- pi
 #
-#users:
-#- default
-#- name: robot
-#  gecos: Mr. Robot
-#  primary_group: robot
-#  groups: users
-#  ssh_import_id: foobar
-#  lock_passwd: false
-#  passwd: $5$hkui88$nvZgIle31cNpryjRfO9uArF7DYiBcWEnjqq7L1AQNN3
+users:
+- default
+- name: CE Administrator
+  gecos: ceadmin
+  primary_group: ceadmin
+  groups: users
+  ssh_import_id: foobar
+  lock_passwd: false
+  passwd: $6$rounds=4096$vQ5BK0sAm90vOsq/$D0563B2JE10/vDB9XAlNQCpnkwp6kZCP1tmGBfe41te/lZjt3EXizrRxq2MePoRDRabRIv3oxc8vV.KtFgKLk0
+
 
 ## Update apt database and upgrade packages on first boot
-#package_update: true
-#package_upgrade: true
+package_update: true
+package_upgrade: true
 
 ## Install additional packages on first boot
 #packages:
