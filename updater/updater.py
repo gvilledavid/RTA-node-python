@@ -46,17 +46,12 @@ class update_parser:
         length = 0
         MAX_LENGTH = 128000  # AWS Iot core allows 128kb max payload
         with open(file_location, "r") as f:
-            lineb = bytes(line, "utf-8")
-            newlength = length + len(lineb)
-            if line == b"":
-                # end of file
-                pass
-            elif newlength > MAX_LENGTH:
-                pass
-
-            else:
-                part += lineb
-                length = newlength
+            while True:
+                part = bytes(f.read(MAX_LENGTH), "utf-8")
+                if not lineb:
+                    # end of file
+                    break
+                length = len(lineb)
 
     def read_update_packets(packets):
         return

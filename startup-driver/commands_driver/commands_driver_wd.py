@@ -8,33 +8,41 @@ from watchdog.events import LoggingEventHandler, PatternMatchingEventHandler
 from logging.handlers import RotatingFileHandler
 
 
-LOGFILE = "/home/ceadmin/RTA/logs/commlog.txt"
-STATUSDIR = "/dev/piCOMM/"
+LOGFILE = "wd/home/ceadmin/RTA/logs/commlog.txt"
+STATUSDIR = "wd/dev/piCOMM/"
 global_logger = None
-cmd_template= {"example":{"default":"terminal command to write default value to this file ",
-                       "change-to":" a string we want to monitor the change to, or 'any'",
-                       "cmd":"command to execute, with '$any$' to replace the read value if above supports it",
-                       "response":'command to generate response, or an empty string for below',
-                       "response-index":'an index for the line of output of cmd to print as a response, '}}
-commands = {"restart":{"default":"echo 0",
-                       "change-to":"1",#"any" is reserved, means read the file, monitor for changes from last value, then $any$ can be used to replace in cmd
-                       "cmd":"sudo shutdown -r 10",
-                       "response":'echo "shutting down in 10 seconds"',#command to generate response or ''
-                       "response-index":0                   #index of output of command to send as a response if "response" is ''
-                       }
-            ,"update":{"default":"echo 0",
-                       "change-to":"1",
-                       "cmd":"sudo DEBIAN_FRONTEND=noninteractive apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
-                       "response":'',
-                       "response-index":-1
-                       }
-            ,"hostname":{"default":"sudo hostnamectl hostname",
-                       "change-to":"any",
-                       "cmd":"sudo hostnamectl hostname $any$",
-                       "response":'',
-                       "response-index":0
-                       }
-            }
+cmd_template = {
+    "example": {
+        "default": "terminal command to write default value to this file ",
+        "change-to": " a string we want to monitor the change to, or 'any'",
+        "cmd": "command to execute, with '$any$' to replace the read value if above supports it",
+        "response": "command to generate response, or an empty string for below",
+        "response-index": "an int index for the line of output of cmd to print as a response, ",
+    }
+}
+commands = {
+    "restart": {
+        "default": "echo 0",
+        "change-to": "1",  # "any" is reserved, means read the file, monitor for changes from last value, then $any$ can be used to replace in cmd
+        "cmd": "sudo shutdown -r 10",
+        "response": 'echo "shutting down in 10 seconds"',  # command to generate response or ''
+        "response-index": 0,  # index of output of command to send as a response if "response" is ''
+    },
+    "update": {
+        "default": "echo 0",
+        "change-to": "1",
+        "cmd": "sudo DEBIAN_FRONTEND=noninteractive apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
+        "response": "",
+        "response-index": -1,
+    },
+    "hostname": {
+        "default": "sudo hostnamectl hostname",
+        "change-to": "any",
+        "cmd": "sudo hostnamectl hostname $any$",
+        "response": "",
+        "response-index": 0,
+    },
+}
 
 
 def check_root():
@@ -49,32 +57,67 @@ def execcmd(command):
         .split("\n")
     )
 
+
 def verify_commands(logger):
+    global commands
+    logger.info("Verifying commands...")
+
+    class UnpopulatedParam(Exception):
+        pass
+
+    class MissingAnyKeyword(Exception):
+        pass
+
     for cmd in commands:
         try:
-            check all keys exist,
-            continue
+            # check all keys exist
+            for key in cmd_template:
+                x = commands[cmd][key]  # will raise key erorr if fails
+                if key != "response" and (not x):
+                    logger.info("{key} parameter must be populated in {cmd}")
+                    raise UnpopulatedParam
+                if key == "change-to" and commands[cmd]["change-to"] == "any":
+                    command = commands[cmd]["cmd"].replace("$any$", "test")
+                    if command == commands[cmd]["cmd"]:  # no change happened
+                        raise MissingAnyKeyword
+                if key == "response" and not x:
+                    index = int(
+                        commands[cmd]["response-index"]
+                    )  # will raise ValueError if fails
+            continue  # to next command
         except KeyError:
-            logger.critical(f"{cmd} has a keyvalue error, removing...")
-        except:    
+            logger.critical(
+                f"{cmd} has a keyvalue error, make sure all keys from template are included, removing..."
+            )
+        except ValueError:
+            logger.critical(
+                f"{cmd} has a ValueError, make sure 'response-index' is an int, removing..."
+            )
+        except UnpopulatedParam:
+            logger.critical(f"{cmd} has a Unpopulated key error, removing...")
+        except MissingAnyKeyword:
+            logger.critical(
+                f"{cmd} is missing '$any' token in 'cmd' when 'change-to' is 'any', removing..."
+            )
+        except:
             logger.critical(f"{cmd} has an exception, removing...")
-        global commands
-        commands.del(cmd)
-        
+        del commands[cmd]
+
+
 def make_filestructure(logger):
+    global commands
     if not os.path.isdir(STATUSDIR):
         os.mkdir(STATUSDIR, mode=0o777)
 
     for command in commands:
         with open(os.path.join(STATUSDIR, command), "w") as f:
-            default=execcmd(commands[command]["default"])[0]
+            default = execcmd(commands[command]["default"])[0]
             f.write(default)
-            global commands
-            commands[command]["last_val"]=default
-        with open(os.path.join(STATUSDIR, command+"-response"), "w") as f:
+            commands[command]["last_val"] = default
+        with open(os.path.join(STATUSDIR, command + "-response"), "w") as f:
             pass
     os.system(f"sudo chmod -R +777 {os.path.normpath(STATUSDIR)}")
-    
+
     arr = []
     lls(STATUSDIR, arr)
     print(arr)
@@ -112,40 +155,65 @@ def start_watchdog(logger):
             )
 
         def on_modified(self, event):
+            global commands
             try:
                 logger.info(f"\n New event on {event.src_path}")
-                cmdname=os.path.split(event.src_path)
-            
+                cmdname = os.path.split(event.src_path)
+
                 logger.info(f"Previously: {commands[cmdname]['last_val']}")
                 with open(event.src_path, "r") as f:
-                    val = f.readline().strip("\n") # this assumes only one line will be written to this file
+                    val = (
+                        f.readline().strip("\n").rstrip()
+                    )  # this assumes only one line will be written to this file
                     logger.info("written val: " + val)
-                    
-                    #psuedocode...
-                    if val is commands[cmdname][last_val] do nothing
-                        log, no change detected, return
-                    elif change-to is not any 
-                        if val is not change-to 
-                            wrong value written, rewrite os.join(STATUSDIR,cmdname) with last_val
-                            logger.info(f"Invalid value written: {val}, reverting to {commands[cmdname]['last_val']}")
+
+                    # psuedocode...
+                    if val == commands[cmdname]["last_val"]:  # do nothing
+                        logger.info(f"No change detected, not doing anything")
+                        execcmd(
+                            f"echo 'no change detected' > {os.path.join(STATUSDIR,cmdname+'-response')}"
+                        )
+                        return
+                    elif not commands[cmdname]["change-to"].lower() == "any":
+                        if not val == commands[cmdname]["change-to"]:
+                            logger.info(
+                                f"Invalid value written to {os.join(STATUSDIR,cmdname)}: {val}, reverting to {commands[cmdname]['last_val']}"
+                            )
+                            execcmd(
+                                f'echo "{commands[cmdname]["last_val"]}" > {os.join(STATUSDIR,cmdname)} '
+                            )
                             return
                         else:
-                            #val is changed to
-                            command=cmdname
-                    else: #val change-to is any then
-                        command=commands[cmdname]["cmd"].repl("$any$",val)
-                    logger.info(f"Executed: {command}")
-                    response=execcmd(command)
+                            logger.info(
+                                f"Valid value written to {os.join(STATUSDIR,cmdname)}: {val}, executing {commands[cmdname]['command']}"
+                            )
+                            response = execcmd(commands[cmdname]["command"])
+                    else:  # val change-to is any then
+                        command = commands[cmdname]["cmd"].repl("$any$", val)
+                        logger.info(
+                            f"'{val}'  written to {os.join(STATUSDIR,cmdname)}, executing {command}"
+                        )
+                        response = execcmd(command)
                     [logger.info(f"Response: {r}") for r in response]
                     if commands[cmdname]["response"]:
-                        execcmd(f"echo {commands[cmdname]['response']}>{os.path.join(STATUSDIR,cmdname+'-response')}")
+                        print_response = response[commands[cmdname]["response-index"]]
                     else:
-                        execcmd(f"echo {response[commands[cmdname]['response-index']]}>{os.path.join(STATUSDIR,cmdname+'-response')}")
-                    write back default to last val and to file
+                        print_response = commands[cmdname]["response"]
+                    execcmd(
+                        f"echo {print_response}>{os.path.join(STATUSDIR,cmdname+'-response')}"
+                    )
+                    logger.info(
+                        f"'{print_response}' written to {os.path.join(STATUSDIR,cmdname+'-response')}"
+                    )
+                    # write back default to last val and to file
+                    default = execcmd(commands[cmdname]["default"])[0]
+                    commands[command][
+                        "last_val"
+                    ] = default  # update last_val before writing file because it will trigger a new event
+                    execcmd(f"echo {default} > {os.path.join(STATUSDIR, command)}")
                     logger.info(f"new val:{commands['cmdname']['last_val']}")
             except:
                 logger.critical(f"process crashed managing {event}")
-                
 
     event_handler = Handler()
     observer = Observer()
@@ -192,5 +260,5 @@ def main():
 
 
 if __name__ == "__main__":
-    print("Starting uart driver.")
+    print("Starting commands driver.")
     main()
