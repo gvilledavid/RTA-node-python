@@ -124,7 +124,8 @@ def shutdown(logger, observer):
     observer.stop()
     observer.join
     logger.info("shutting down")
-    logger.shutdown()
+    logger.handlers.clear()
+    # logger.shutdown()
 
 
 def start_watchdog(logger):
