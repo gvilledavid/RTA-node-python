@@ -21,7 +21,12 @@ uart_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]  # BC
 EN = 20  # low to enable chips
 force_on = 18  # low to enable autopower down
 force_off = 19  # high to enable drivers
-invalid = [24, 25, 26, 27]  # goes high when valid rs232 signals detected by reciever
+invalid = [
+    24,
+    25,
+    26,
+    27,
+]  # AMA1-4 # goes high when valid rs232 signals detected by reciever
 
 global_logger = None
 
@@ -42,16 +47,16 @@ def init_gpios():
         f.write("0")
     for pin in invalid:
         GPIO.add_event_detect(pin, GPIO.BOTH, callback=invalid_gpio_handler)
+    [invalid_gpio_handler(r) for r in invalid]
 
 
 def invalid_gpio_handler(channel):
     print("Gpio handler")
-    global_logger.info(
-        f"ttyAMA{str(channel-invalid[0]+1)} detected, now {GPIO.input(channel)}"
-    )
-    os.system(
-        f"echo '{GPIO.input(channel)}'> /dev/piUART/status/ttyAMA{str(channel-invalid[0]+1)}"
-    )
+    if channel not in invalid:
+        return
+    idx = invalid.index(channel)
+    global_logger.info(f"ttyAMA{str(idx+1)} detected, now {GPIO.input(channel)}")
+    os.system(f"echo '{GPIO.input(channel)}'> /dev/piUART/status/ttyAMA{str(idx+1)}")
 
 
 def check_root():
