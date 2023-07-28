@@ -22,7 +22,7 @@ class pulse:
             self.legacy_topic,
             self.legacy_pulse,
         ) = self.generate_node_pulse(1)
-        self.logger.info("Started pulse runner")
+        self.logger.info(f"Started pulse runner from {__file__}")
         self.brief = self.to_json(self.generate_brief_node_pulse(self.rawpulse))
         self.logger.debug(self.brief)
         self.pulse = self.to_json(self.rawpulse)
@@ -119,8 +119,21 @@ class pulse:
         return str(subprocess.check_output("hostname", shell=True).strip(b"\n"))[2:-1]
 
     def set_hostname(self, name):
-        ret = os.system(f"hostnamectl set-hostname {name}")
-        return 1 if ret == 0 else 0
+        # old method, requires root
+        # ret = os.system(f"hostnamectl set-hostname {name}")
+        # return 1 if ret == 0 else 0
+        try:
+            with open("\dev\piCOMM\hostname", "w") as f:
+                f.write(name)
+        except:
+            return False
+        timeout = 0
+        TIMEOUTMAX = 5
+        while name != self.get_hostname():
+            timeout += timeout
+            if timeout > TIMEOUTMAX:
+                return False
+        return True
 
     def get_hostname_verbose(self):
         dict = {"UID": self.UID}
@@ -449,6 +462,49 @@ class pulse:
 
     def __del__(self):
         self.logger.shutdown()
+
+
+def get_mac(interface_name):
+    def param_from_iface(iface_str, param):
+        index = iface_str.find(param + " ")
+        if index == -1:
+            return ""
+        start_index = index + len(param) + 1
+        index = iface_str[start_index:].find(" ")
+        if index != -1:
+            return iface_str[start_index : start_index + index]
+        else:
+            return iface_str[start_index:]
+
+    try:
+        stdoutval = str(subprocess.check_output("ip address show", shell=True))[2:-1]
+        list = []
+        link = 1
+        while len(stdoutval) > 3:
+            end_index = stdoutval.find(f"\\n{link+1}")
+            if end_index == -1:
+                end_index = len(stdoutval)
+            this_link = stdoutval[:end_index]
+            list.append(this_link)
+            stdoutval = stdoutval[end_index:].replace("\\n", "", 1)
+            link += 1
+        for link in list:
+            if link[2 : link[2:].find(":") + 2].strip() == interface_name:
+                return param_from_iface(link, "link/ether")
+    except:
+        interface = (
+            b"Ethernet adapter Ethernet"
+            if interface_name == "eth0"
+            else b"Wireless LAN adapter Wi-Fi"
+        )
+        print(
+            "Linux    mac not found (is ip or iproute2 installed?) Trying windows mac."
+        )
+        x = subprocess.check_output("ipconfig /all", shell=True)
+        first_eth_interface = x[x.find(interface) :]
+        mac = first_eth_interface[first_eth_interface.find(b"Physical Address") :]
+        mac = str(mac[mac.find(b":") : mac.find(b"\r")])[4:-1].replace("-", ":")
+        return mac.lower()
 
 
 if __name__ == "__main__":

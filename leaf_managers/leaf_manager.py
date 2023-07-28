@@ -2,13 +2,12 @@ import os
 import threading
 import serial
 
-def get_uart_data(tty, brate, tout, cmd):
+def get_uart_data(tty, brate, tout, cmd, par=serial.PARITY_NONE,rts_cts=0):
     with serial.Serial(tty, brate, timeout=tout,
-            parity=serial.PARITY_NONE, rtscts=0) as ser:
+            parity=par, rtscts=rts_cts) as ser:
         ser.flush()
         ser.write(cmd)
         line = ser.readline()
-        # print( line )
         ser.close()
         return line
     
