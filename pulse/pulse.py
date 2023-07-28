@@ -529,7 +529,7 @@ if __name__ == "__main__":
         while not p.dataready:
             time.sleep(0.1)
         if p.isdatavalid():
-            p.brief
+            #p.brief
             print(
                 f"{p.pulse=}\n{p.pulse_topic=}\n{p.legacy_pulse=}\n{p.legacy_topic=}\n{p.brief=}\n{p.executiontime}"
             )

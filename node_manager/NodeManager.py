@@ -20,15 +20,16 @@ from tools.miamihosts import get_Miami_Hostname
 from leaf_managers.leaf_manager import UARTLeafManager
 from tools.MQTT import MQTT, MQTTMessage
 
+
 class NodeManager:
     def __init__(self, brokerName):
         self.UID = get_mac("eth0")
         self.logger = RotatingLogger("NodeManager.log")
-        self.leafs={}
+        self.leafs = {}
         for tty in self.detect_hardware():
-            self.leafs[tty]=UARTLeafManager(tty, tty,self.UID)
+            self.leafs[tty] = UARTLeafManager(tty, tty, self.UID)
             self.leafs[tty].loop_start()
-        
+
         # MQTT status and flag stuff
         self.is_connected = False
         self.was_connected = False
@@ -44,7 +45,8 @@ class NodeManager:
             (self.pulse_topic, 1),
             (self.message_topic, 1),
         ]
-
+        self.pulse = pulse()
+        self.pulse.update()
         # queues
         self.commandQueue = queue.PriorityQueue()
         self.messageQueue = queue.PriorityQueue()
@@ -52,58 +54,77 @@ class NodeManager:
         # Authentication
         self.secrets = get_secrets(brokerName)
         self.client = self.connect_mqtt()
-        #remove the above MQTT and instead use the MQTT library
-        self.subscription_topics=[]
-        self.qos=1
-        self.subscription_topics.append((f"Commands/{self.UID}",self.qos))
-        
+        # remove the above MQTT and instead use the MQTT library
+        self.subscription_topics = []
+        self.qos = 1
+        self.subscription_topics.append((f"Commands/{self.UID}", self.qos))
+
         for leaf in self.leafs:
-            self.subscription_topics.append((f"Commands/{self.UID}:{leaf}",self.qos))
-        self.brokers=[]
+            self.subscription_topics.append((f"Commands/{self.UID}:{leaf}", self.qos))
+        self.brokers = []
         if type(brokerName) is str:
-            self.brokers.append(MQTT(brokerName,self.subscription_topics))
+            self.brokers.append(MQTT(brokerName, self.subscription_topics))
         elif type(brokerName) is list:
             for b in brokerName:
-                self.brokers.append(MQTT(b,self.subscription_topics))
+                self.brokers.append(MQTT(b, self.subscription_topics))
         else:
-            raise (f"brokerName must be a single broker or an array, not {type(brokerName)}")
+            raise (
+                f"brokerName must be a single broker or an array, not {type(brokerName)}"
+            )
+        self.pulse_freq = 60
+        self.brief_freq = 10
+
         self.main_loop()
-        
+
     def __del__(self):
         for leaf in self.leafs:
             leaf.stop_loop()
             self.disconnect()
             self.logger.shutdown()
-            
+
     def detect_hardware(self):
-        #todo load HW.conf for this version?
+        # todo load HW.conf for this version?
         try:
             ttyStatus = subprocess.check_output("ls /dev/piUART/status", shell=True)
             return str(ttyStatus)[2:-3].split("\\n")
         except:
-            return ["ttyAMA1","ttyAMA2","ttyAMA3","ttyAMA4"]
+            return ["ttyAMA1", "ttyAMA2", "ttyAMA3", "ttyAMA4"]
+
     def process_commands(self):
-        #send_pulse
-        #restart: kill all leafs, call restart
-        #set_time: should accept time, timezone, something like that
-        #update: call apt update/upgrate
-        #shutdown: rarely used but should be implimented
-        #update certs:  pass certs and thumb and date valid
-        #hostname update
-        #req_id
+        # send_pulse
+        # restart: kill all leafs, call restart
+        # set_time: should accept time, timezone, something like that
+        # update: call apt update/upgrate
+        # shutdown: rarely used but should be implimented
+        # update certs:  pass certs and thumb and date valid
+        # hostname update
+        # req_id
         pass
+
     def main_loop(self):
-        for leaf in self.leafs:
-            if not leaf.is_alive():
-                pass
-                #why did it die? how to restart
-            else:
-                while self.qsize():
-                    try:
-                        priority, msg=self.get()
-                        #using msg.topic, decide if it is an action you can act on
-                        
-        
+        self.last_pulse = 0
+        self.last_brief = 0
+        while self.running:
+            iter_time = time.time()
+            if time.time() - self.last_pulse > self.pulse_freq:
+                pulse.update
+            elif time.time() - self.last_brief > self.brief_freq:
+                pulse.brief_update
+
+            for leaf in self.leafs:
+                if not leaf.is_alive():
+                    pass
+                    # why did it die? how to restart
+                else:
+                    while self.leaf.qsize():
+                        try:
+                            priority, msg = self.get()
+                            # using msg.topic, decide if it is an action you can act on
+                            for b in self.brokers:
+                                b.put((priority, msg))
+                        except:
+                            pass
+
     def connect_mqtt(self):
         def on_connect(client, userdata, flags, rc):
             if rc == 0:  # connected successfully
