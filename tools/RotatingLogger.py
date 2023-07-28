@@ -15,7 +15,7 @@ class RotatingLogger:
             # os.system(f"mkdir -p {dir}")  # os.mkdir(log_dir, mode=0o666)
             # os.system(f"sudo chmod -R +777 {log_dir}")
             os.makedirs(dir)
-        self.UID = f"Rotating Logger :{str(int(time.time()))}"
+        self.UID = f"Rotating Logger {logname}:{str(int(time.time()))}"
         self.logger = logging.getLogger(self.UID)
 
         self.logger.setLevel(logging.DEBUG)

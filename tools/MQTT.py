@@ -11,6 +11,7 @@ import queue
 import subprocess
 import json
 import threading
+from threading import Lock
 
 sys.path.append(
     os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -79,12 +80,13 @@ class Message(MQTTMessage):
 
 
 class MQTT:
-    def __init__(self, brokerName, sublist, logger=None):
+    def __init__(self, brokerName, sublist, logger=None, pub_mask=None):
         if not logger:
             self.logger = RotatingLogger(f"{brokerName}-MQTT.log")
         else:
             self.logger = logger
         # status and flag stuff
+        self.initialized = False
         self.is_connected = False
         self.was_connected = False
         self.UID = get_mac("eth0")
@@ -97,17 +99,29 @@ class MQTT:
         # These queues define the MQTt-Node connection from this library's point of view
         #   tx is the transmit to node queue, it is for recieved broker messages that are forwarded to the Node
         #   rx is for messages recieved from the Node, which will be published to the broker
-        self.txQueue = queue.PriorityQueue()
-        self.rxQueue = queue.PriorityQueue()
+        self.txQueue = queue.PriorityQueue(maxsize=1000)
+        self.rxQueue = queue.PriorityQueue(maxsize=1000)
 
-        # Authentication
-        self.secrets = get_secrets(brokerName)
-        self.client = self.connect_mqtt()
         # publisher thread
         self.publisher = threading.Thread(target=self.publish_handler, args=())
         self.pub_running = False
         self.pub_stopped = True
-
+        self.get_lock=Lock()
+        self.put_lock=Lock()
+        self.mask=pub_mask
+        
+        # Authentication
+        self.secrets = get_secrets(brokerName)
+        self.client = self.connect_mqtt()
+    def pub_mask(self,topic):
+            if not self.mask:
+                return True
+            for t in self.mask:
+                #use MQTTMatcher from matcher.py
+                #if t matches, return True
+                pass
+            return False
+            
     def connect_mqtt(self):
         def on_connect(client, userdata, flags, rc):
             if rc == 0:  # connected successfully
@@ -122,20 +136,31 @@ class MQTT:
                     self.status = "CONNECTED"
                     self.logger.info(f"Connected to MQTT Broker {self.secrets.broker}!")
                 self.was_connected = True
-                client.publish(self.status_topic, "Connected", qos=1, retain=True)
+                client.publish(
+                    self.status_topic, f"Connected:{self.status}", qos=1, retain=True
+                )
+                self.publisher_start()
 
             else:
-                self.logger.info("Failed to connect, return code %d\n", rc)
-            self.logger.info(
-                userdata, flags, rc
-            )  # None {'session present': 0} 0 on good
+                self.logger.info(f"Failed to connect, return code {rc}\n")
+            self.logger.info(str([userdata, flags, rc]))
+            # None {'session present': 0} 0 on good
             self.is_connected = True
 
         def on_message(client, userdata, message):
-            self.logger.info(f"Recieved {message.topic}")
-            self.txQueue.put((5, message))
-
+            self.logger.info(f"Recieved from broker: {message.topic}")
+            if not self.full():
+                try:
+                    self.txQueue.put_nowait((5, message))
+                except queue.Full:
+                    self.logger.critical("tx queue is full and this message is lost.")
+                except:
+                    self.logger.critical("unknown exception when writing to tx queue. Message is lost.")
+            else:
+                self.logger.critical("tx queue is full and this message is lost.")
+            
         def on_disconnect(client, two, three):
+            self.publisher_stop()
             self.logger.info("Disconnected")
             self.is_connected = False
 
@@ -148,7 +173,7 @@ class MQTT:
             ssl.Purpose.SERVER_AUTH,
             cafile=(self.secrets.CA_file if self.secrets.using_CA else None),
         )  # self.secrets.using_CA ? self.secrets.CA_file : None
-        self.logger.info(self.secrets.CA_file, self.secrets.using_CA)
+        self.logger.info(str([self.secrets.CA_file, self.secrets.using_CA]))
         context.load_cert_chain(
             certfile=self.secrets.cert_file,
             keyfile=self.secrets.key_file,
@@ -169,18 +194,23 @@ class MQTT:
             )
             # client.username_pw_set("ceadmin","Test32607")
             # print(f"|{self.secrets.username}|{self.secrets.password if self.secrets.password else None}|")
-        client.will_set(self.pulse_topic, "Disconnected, will sent", qos=1, retain=True)
-        client.connect(self.secrets.address, self.secrets.port)
-        self.logger.info(self.secrets.address, self.secrets.port)
-        client.loop_start()
-        while not self.is_connected:
-            pass
-        client.subscribe(self.message_topic, 1)
-        # client.message_callback_add(f"Devices/commands/{self.UID}", self.command_callback)
-        client.subscribe(self.command_topic, 1)
+        client.will_set(self.status_topic, "Disconnected: lwt sent", qos=1, retain=True)
+        self.logger.info(str([self.secrets.address, self.secrets.port]))
+        try:
+            client.connect(self.secrets.address, self.secrets.port)
+            client.loop_start()
+            while not self.is_connected:
+                pass
+        except TimeoutError:
+            self.logger.critical(f"Server could not be reached at hostname")
+        except:
+            self.logger.critical(f"Could not connect")
+        self.initialized = True
         return client
 
     def publish(self, topic_root, data, qos=0, retain=False):
+        if not self.initialized or not self.is_connected:
+            return
         # time.sleep(self.sleep_time)
         # total_count += 1
         topic = "".join([topic_root, "/", self.UID]).replace("//", "/")
@@ -192,6 +222,8 @@ class MQTT:
             self.logger.info("Unhandled exception in mqtt publish")
 
     def publishWithoutID(self, topic, data, qos=0, retain=False):
+        if not self.initialized or not self.is_connected:
+            return
         try:
             self.client.lastmsg = self.client.publish(
                 topic, data, qos=qos, retain=retain
@@ -209,10 +241,13 @@ class MQTT:
         while self.pub_running:
             try:
                 while self.rxQueue.qsize():
-                    msg = self.rxQueue.get()
-                    self.publishWithoutID(msg.topic, msg.data, msg.qos.msg.retain)
+                    priority, msg = self.rxQueue.get()
+                    if self.pub_mask(msg.topic):
+                        self.publishWithoutID(msg.topic, msg.data, msg.qos,msg.retain)
+            except queue.Empty:
+                pass#todo, something here
             except:
-                pass
+                pass#todo, something here
         self.pub_stopped = True
         self.pub_running = False
 
@@ -233,16 +268,36 @@ class MQTT:
 
     def publisher_running(self):
         return not self.pub_stopped
-
-
+    def get(self):
+        #wrapper for txqueue.get
+        with self.get_lock:
+            if self.txQueue.qsize():
+                try:
+                    return self.txQueue.get_nowait()
+                except queue.Empty:
+                    self.logger.info("txqueue empty, not returning anything.")
+                except:
+                    self.logger.critical("Unhandled exception in MQTT.get")
+        return None
+    
+    def put(self, priority):
+        #wrapper for rxqueue.put
+        with self.put_lock:
+            if self.tx
 if __name__ == "__main__":
     sublist = [("Devices/#", 0)]
-    brokers = [MQTT("Azure", sublist), MQTT("AWS", sublist), MQTT("Azure", sublist)]
+    brokers = [
+        MQTT("Azure", sublist),
+        MQTT("AWS", sublist),
+        MQTT("cebabletier", sublist),
+    ]
 
     for b in brokers:
         while not b.is_connected:  # wait until connect to publish
             pass
-        b.rxqueue(f"Pulse/leafs/{b.UID}", "Connected", qos=1, retain=True)
+        b.rxQueue.put(
+            (5, Message(f"Pulse/leafs/{b.UID}", "Connected", qos=1, retain=True))
+        )
     while 1:
         message = input('Type a message, or type "EXIT"')
         if message == "EXIT":

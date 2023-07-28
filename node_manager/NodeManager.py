@@ -18,6 +18,7 @@ from tools.get_secrets import get_secrets
 from pulse.pulse import pulse, get_mac
 from tools.miamihosts import get_Miami_Hostname
 from leaf_managers.leaf_manager import UARTLeafManager
+from tools.MQTT import MQTT, MQTTMessage
 
 class NodeManager:
     def __init__(self, brokerName):
@@ -51,7 +52,23 @@ class NodeManager:
         # Authentication
         self.secrets = get_secrets(brokerName)
         self.client = self.connect_mqtt()
+        #remove the above MQTT and instead use the MQTT library
+        self.subscription_topics=[]
+        self.qos=1
+        self.subscription_topics.append((f"Commands/{self.UID}",self.qos))
+        
+        for leaf in self.leafs:
+            self.subscription_topics.append((f"Commands/{self.UID}:{leaf}",self.qos))
+        self.brokers=[]
+        if type(brokerName) is str:
+            self.brokers.append(MQTT(brokerName,self.subscription_topics))
+        elif type(brokerName) is list:
+            for b in brokerName:
+                self.brokers.append(MQTT(b,self.subscription_topics))
+        else:
+            raise (f"brokerName must be a single broker or an array, not {type(brokerName)}")
         self.main_loop()
+        
     def __del__(self):
         for leaf in self.leafs:
             leaf.stop_loop()
@@ -75,8 +92,17 @@ class NodeManager:
         #hostname update
         #req_id
         pass
-    def main_loop(Self):
-        
+    def main_loop(self):
+        for leaf in self.leafs:
+            if not leaf.is_alive():
+                pass
+                #why did it die? how to restart
+            else:
+                while self.qsize():
+                    try:
+                        priority, msg=self.get()
+                        #using msg.topic, decide if it is an action you can act on
+                        
         
     def connect_mqtt(self):
         def on_connect(client, userdata, flags, rc):

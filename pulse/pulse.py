@@ -130,7 +130,7 @@ class pulse:
         timeout = 0
         TIMEOUTMAX = 5
         while name != self.get_hostname():
-            timeout += timeout
+            timeout += 1
             if timeout > TIMEOUTMAX:
                 return False
         return True
