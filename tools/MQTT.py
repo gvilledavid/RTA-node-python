@@ -105,7 +105,7 @@ class Message(MQTTMessage):
 
 
 class MQTT:
-    def __init__(self, brokerName, sublist, logger=None, pub_mask=None):
+    def __init__(self, brokerName, sublist=None, logger=None, pub_mask=None):
         if not logger:
             self.logger = RotatingLogger(f"{brokerName}-MQTT.log")
         else:
@@ -381,6 +381,8 @@ class MQTT:
                     except:
                         if not nolog:
                             self.logger.critical("Unhandled exception in MQTT.get")
+                else:  # when full, throw away the lowest priority thing
+                    self.rxQueue.queue.pop()
         return False
 
     def put_blocking(self, priority, msg, timeout=0):

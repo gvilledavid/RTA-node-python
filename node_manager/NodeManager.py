@@ -8,6 +8,7 @@ import os, sys
 import re
 import queue
 import subprocess
+import platform
 
 # local includes
 sys.path.append(
@@ -15,10 +16,10 @@ sys.path.append(
 )  # add RTA-node-python to path
 from tools.RotatingLogger import RotatingLogger
 from tools.get_secrets import get_secrets
-from pulse.pulse import pulse, get_mac
+from pulse.pulse import pulse, fake_windows_pulse
 from tools.miamihosts import get_Miami_Hostname
 from leaf_managers.leaf_manager import UARTLeafManager
-from tools.MQTT import MQTT, Message
+from tools.MQTT import MQTT, Message, get_mac
 
 
 class NodeManager:
@@ -40,7 +41,10 @@ class NodeManager:
             for commands in [leaf.command_topic for leaf in self.leafs]
         ]
         self.subscription_topics.append((self.command_topic, self.qos))
-        self.pulse = pulse()
+        if platform.system() == "Windows":
+            self.pulse = fake_windows_pulse()
+        else:
+            self.pulse = pulse()
         self.pulse.update()
 
         self.brokers = []
@@ -68,10 +72,10 @@ class NodeManager:
 
     def __del__(self):
         for leaf in self.leafs:
-            leaf.stop_loop()
-            self.disconnect()
-            self.logger.shutdown()
-        self.brokers
+            leaf.loop_stop()
+
+        for b in self.brokers:
+            b.shutdown()
         self.logger.shutdown()
 
     def detect_hardware(self):
@@ -126,20 +130,4 @@ class NodeManager:
 
 
 if __name__ == "__main__":
-    # azure = MQTT(get_secrets("Azure"))
-    # aws = MQTT(get_secrets("AWS"))
-    mac_address = "123"
-    broker = MQTT("Azure")
-    # azure.sleep_time=1
-    # node=pulse()
-    # node.update()
-    while not broker.is_connected:  # wait until connect to publish
-        pass
-    broker.publish("Pulse/leafs", "Connected", qos=1, retain=True)
-    while 1:
-        message = input('Type a message, or type "EXIT"')
-        if message == "EXIT":
-            break
-        else:
-            broker.publish("test/", message)
-    broker.disconnect()
+    NodeManager(["Azure", "AWS", "cebabletier"])

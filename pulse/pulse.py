@@ -10,6 +10,50 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from tools.RotatingLogger import RotatingLogger
 
 
+class fake_windows_pulse:
+    def __init__(self):
+        self.mac = get_mac("eth0")
+        self.dataready = True
+        self.executiontime = 0
+        self.pulse = {
+            "UID": self.mac,
+            "Static-hostname": "windows",
+            "networking": [
+                {"name": "eth0", "mac": self.mac, "ipv4": "", "ipv6": ""},
+                {
+                    "name": "wlan0",
+                    "mac": self.mac,
+                    "ipv4": "192.168.1.180/16",
+                    "ipv6": "fe80::7277:33d9:e9c8:1658/64",
+                },
+            ],
+            "connected-leafs": {
+                "ttyAMA0": "?",
+                "ttyAMA1": "1",
+                "ttyAMA2": "0",
+                "ttyAMA3": "1",
+                "ttyAMA4": "1",
+                "": "?",
+            },
+            "battery": {"Bat": 0},
+            "timestamp": str(int(time.time() * 1000)),
+        }
+
+        self.pulse_topic = f"Pulse/nodes/{self.mac}"
+        self.legacy_pulse = '{"l":[{"l":[{"l":[{"n":"MAC","v":"e45f01dbe694"}],"n":"eth0","v":"10.66.103.189"}],"n":"if","v":""},{"n":"ID","v":"e45f01dbe694"},{"n":"Pow","v":"Charging"},{"n":"Bat","v":80},{"n":"IID","v":"1"}],"n":"Time","v":"1690828457647"}'
+        self.legacy_topic = f"Device/Pulse/{self.mac}{self.mac}LeafPulse11"
+        self.brief = self.pulse
+
+    def update(self):
+        pass
+
+    def brief_update(self):
+        pass
+
+    def isdatavalid(self):
+        return True
+
+
 class pulse:
     def __init__(self, logger=None):
         if logger:
@@ -529,7 +573,7 @@ if __name__ == "__main__":
         while not p.dataready:
             time.sleep(0.1)
         if p.isdatavalid():
-            #p.brief
+            # p.brief
             print(
                 f"{p.pulse=}\n{p.pulse_topic=}\n{p.legacy_pulse=}\n{p.legacy_topic=}\n{p.brief=}\n{p.executiontime}"
             )
