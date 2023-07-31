@@ -30,7 +30,8 @@ class UARTLeafManager:
         self.parser=None
         self.baud=0
         self.UID=f"{parentUID}:{interface}"
-        
+        self.command_topic=f"Commands/{self.UID}"
+        self.response_topic=f"Devices/responses/{self.UID}"
         if not logger:
             self.logger = RotatingLogger(f"UARTLeafManager-{interface}.log")
         else:
