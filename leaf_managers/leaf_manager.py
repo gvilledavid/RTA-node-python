@@ -10,6 +10,7 @@ sys.path.append(
     os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 )  # add RTA-node-python to path
 from tools.RotatingLogger import RotatingLogger
+from parsers.parser import example_parser
 
 
 class UARTLeafManager:
@@ -18,11 +19,11 @@ class UARTLeafManager:
 
     def __init__(self, interface, parentUID, logger=None):
         self.interface = interface
-        self.parser = None
         self.baud = 0
         self.UID = f"{parentUID}:{interface}"
         self.command_topic = f"Commands/{self.UID}"
         self.response_topic = f"Devices/responses/{self.UID}"
+
         if not logger:
             self.logger = RotatingLogger(f"UARTLeafManager-{interface}.log")
         else:
@@ -32,6 +33,7 @@ class UARTLeafManager:
         self.stopped = True
         self.rxQueue = queue.PriorityQueue(maxsize=1000)
         self.txQueue = queue.PriorityQueue(maxsize=1000)
+        self.parser = example_parser(interface, parent=self.UID, txQueue=self.txQueue)
 
     def scan_baud(self):
         pass
@@ -57,9 +59,17 @@ class UARTLeafManager:
     def loop_runner(self):
         # add flags, exception handling
         while self.running:
-            while not self.parser.scan_connection():
+            while not self.parser.validate_hardware():
                 self.find_parser()
+            if not self.parser.is_running():
+                self.parser.loop_start()
+            # generate pulse
+
         self.stopped = True
+
+    def find_parser(self):
+        # select the next parser
+        pass
 
     def is_alive(self):
         self.runner.join(timeout=0)
@@ -96,3 +106,12 @@ class UARTLeafManager:
         # "parsers.parser1.parser1"
         # first check if you are using this
         importlib.reload(sys.modules[sys_name])
+
+
+if __name__ == "__main__":
+    leaf = UARTLeafManager("ttyAMA2", "123")
+    leaf.loop_start()
+    while True:
+        if leaf.txQueue.not_empty:
+            print(f"Recieved {leaf.txQueue.get()}")
+        time.sleep(0.5)

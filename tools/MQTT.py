@@ -103,6 +103,9 @@ class Message(MQTTMessage):
     def subtopics(self):
         return self.topic.split("/")
 
+    def __repr__(self) -> str:
+        return f"{self.__class__}:\n\t{self.topic=}\n\t{self.qos=} {self.retain=}\n\t{self.payload=}"
+
 
 class MQTT:
     def __init__(self, brokerName, sublist=None, logger=None, pub_mask=None):
@@ -291,7 +294,7 @@ class MQTT:
             return
         try:
             self.client.lastmsg = self.client.publish(
-                msg.topic, msg.data, qos=msg.qos, retain=msg.retain
+                msg.topic, msg.payload, qos=msg.qos, retain=msg.retain
             )
         except:
             self.logger.info("Unhandled exception in mqtt publish")

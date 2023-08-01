@@ -4,11 +4,13 @@ import time
 import queue
 import importlib
 import serial
+
 # local includes
 sys.path.append(
     os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 )  # add RTA-node-python to path
 from tools.RotatingLogger import RotatingLogger
+from tools.MQTT import Message
 
 
 class parser:
@@ -16,29 +18,41 @@ class parser:
     send_named = 2
     send_delta = 3
 
-    def __init__(self,tty,parent_txQueue, logger=None):
+    def __init__(
+        self, tty: str, parent: str, txQueue: queue.PriorityQueue, logger=None
+    ):
         if not logger:
             self.logger = RotatingLogger(f"ParserManager-{tty}.log")
         else:
             self.logger = logger
-        self.interface=f"/dev/{tty}"
-        self.fields
+        self.interface = f"/dev/{tty}"
+        self.fields = []
         self._stopped = True
         self.serial_info = {}
         self.baud_rates = []
+        self.queue = txQueue
+        self._poll_freq = 2  # how fast your poll loop runs
+        self._send_freq = (
+            2  # how fast you want the leaf object to send info down the txqueue
+        )
+        self._running = False
         self._init()
+
     def _init(self):
         """
         user init for the specific parser
         """
         pass
+
     def _del(self):
         """
         user destructor for the specific parser
         """
         pass
+
     def __del__(self):
-        self.        
+        self.stop_loop()
+
     def get_uart_data(self, tty, brate, tout, cmd, par=serial.PARITY_NONE, rts_cts=0):
         with serial.Serial(tty, brate, timeout=tout, parity=par, rtscts=rts_cts) as ser:
             ser.flush()
@@ -67,7 +81,10 @@ class parser:
         )
 
     def loop_start(self):
-        self.thread = threading.Thread(self.runner, args=())
+        self.thread = threading.Thread(target=self.runner, args=())
+        self._running = True
+        self._stopped = False
+        self.thread.start()
 
     def runner(self):
         while self._running:
@@ -76,12 +93,16 @@ class parser:
 
         self._stopped = True
 
+    def is_running(self):
+        return self._running
+
     def poll(self):
-        raise NotImplemented("Overwrite .poll() with you rloop code for this parser.")
+        raise NotImplemented("Overwrite .poll() with your loop code for this parser.")
 
     def loop_stop(self):
         self._running = False
-        self.runner.join(self._timeout)
+        self.thread.join(self._timeout)
+        del self.thread
 
     def set_baud_rate(self, brate):
         self.baud = brate
@@ -106,5 +127,37 @@ class parser:
     def set_poll_freq(self, seconds):
         self._poll_freq = seconds
 
+    def put(self, item):
+        if not self.queue.full():
+            try:
+                self.queue.put(item=item, timeout=2)
+                return True
+            except queue.Full:
+                self.queue.queue.pop()
+                return self.put(item)
+            except TimeoutError:
+                return False
+            except:
+                return False
+        return False
+
+
 class example_parser(parser):
-    
+    def validate_hardware(self):
+        return True
+
+    def validate_error_message(self, message):
+        return True
+
+    def poll(self):
+        self.put((5, Message(payload=f"test{time.time()}", topic="test")))
+
+
+if __name__ == "__main__":
+    q = queue.PriorityQueue(maxsize=3)
+    x = example_parser(tty="ttyAMA1", parent="123", txQueue=q)
+    x.loop_start()
+    while True:
+        if q.not_empty:
+            print(f"Recieved {q.get()}")
+        time.sleep(0.5)

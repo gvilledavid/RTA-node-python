@@ -28,7 +28,7 @@ class NodeManager:
         self.logger = RotatingLogger("NodeManager.log")
         self.leafs = {}
         for tty in self.detect_hardware():
-            self.leafs[tty] = UARTLeafManager(tty, tty, self.UID)
+            self.leafs[tty] = UARTLeafManager(tty, self.UID)
             self.leafs[tty].loop_start()
 
         # topic stuff
@@ -38,7 +38,7 @@ class NodeManager:
         self.pulse_topic = f"Pulse/nodes/{self.UID}"
         self.subscription_topics = [
             (commands, self.qos)
-            for commands in [leaf.command_topic for leaf in self.leafs]
+            for commands in [self.leafs[leaf].command_topic for leaf in self.leafs]
         ]
         self.subscription_topics.append((self.command_topic, self.qos))
         if platform.system() == "Windows":
@@ -68,6 +68,7 @@ class NodeManager:
         self.pulse_freq = 60
         self.brief_freq = 10
 
+        self.running = True
         self.main_loop()
 
     def __del__(self):
@@ -103,18 +104,26 @@ class NodeManager:
         while self.running:
             iter_time = time.time()
             if time.time() - self.last_pulse > self.pulse_freq:
-                pulse.update()
+                if self.pulse.dataready:
+                    # pulse.pulse, pulse.pulse_topic to make a Message
+                    self.last_pulse = time.time()
+                elif not self.pulse.updating:
+                    self.pulse.update()
             elif time.time() - self.last_brief > self.brief_freq:
-                pulse.brief_update()
+                if self.pulse.dataready:
+                    # pulse.pulse_brief, pulse.pulse_topic to make a Message
+                    self.last_brief = time.time()
+                elif not self.pulse.updating:
+                    self.pulse.brief_update()
 
             for leaf in self.leafs:
-                if not leaf.is_alive():
+                if not self.leafs[leaf].is_alive():
                     pass
                     # why did it die? how to restart
                 else:
-                    while self.leaf.qsize():
+                    while self.leafs[leaf].txQueue.qsize():
                         try:
-                            priority, msg = self.get()
+                            priority, msg = self.leafs[leaf].txQueue.get()
                             # using msg.topic, decide if it is an action you can act on
                             for b in self.brokers:
                                 b.put(priority, msg)
