@@ -151,7 +151,7 @@ class MQTT:
         else:
             self.mask.append(topic)
 
-    def pub_mask(self, topic):
+    def publish_mask(self, topic):
         if not self.mask:
             return True
         for t in self.mask:
@@ -313,8 +313,8 @@ class MQTT:
         if self.client.lastmsg:
             self.client.lastmsg.wait_for_publish()
         self.publisher_stop(10)
-        self.client.loop_stop()
         self.client.disconnect()
+        self.client.loop_stop()
         self.logger.shutdown()
 
     def publish_handler(self):
@@ -322,7 +322,7 @@ class MQTT:
             try:
                 while self.rxQueue.qsize():
                     priority, msg = self.rxQueue.get()
-                    if self.pub_mask(msg.topic):
+                    if self.publish_mask(msg.topic):
                         self.publishWithoutID(msg)
             except queue.Empty:
                 pass  # todo, something here

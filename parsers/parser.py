@@ -13,11 +13,36 @@ from tools.RotatingLogger import RotatingLogger
 from tools.MQTT import Message
 
 
+class enumerate_parsers:
+    pass
+
+
 class parser:
     send_all = 1
     send_named = 2
     send_delta = 3
+    parsers_count = 0
+    parsers_in_use = {}
+    plock = threading.Lock()
 
+    @classmethod
+    def register_parser(obj, parser_class):
+        with obj.plock:
+            id = obj.parsers_count
+            obj.parsers_count += 1
+        obj.parsers_in_use[id] = parser_class
+        return id
+
+    @classmethod
+    def deregister_parser(obj, id):
+        is_valid = obj.parsers_in_use.get(id, None)
+        if is_valid:
+            del obj.parsers_in_use[id]
+            return True
+        return False
+    
+    def reload_parser(obj,id):
+        
     def __init__(
         self, tty: str, parent: str, txQueue: queue.PriorityQueue, logger=None
     ):
