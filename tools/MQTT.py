@@ -21,6 +21,8 @@ from tools.get_secrets import get_secrets
 from pulse.pulse import pulse, get_mac
 
 
+# priority queue:
+# 1: alarms, 3:pulse, 5:default, 6:vitals/phys, 7:settings
 class Message(MQTTMessage):
     """
     topic : String. topic that the message was published on.

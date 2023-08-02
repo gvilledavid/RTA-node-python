@@ -4,6 +4,7 @@ import time
 import queue
 import importlib
 import serial
+import json
 
 # local includes
 sys.path.append(
@@ -11,6 +12,7 @@ sys.path.append(
 )  # add RTA-node-python to path
 from tools.RotatingLogger import RotatingLogger
 from parsers.parser import example_parser
+from tools.MQTT import Message
 
 
 class UARTLeafManager:
@@ -20,10 +22,15 @@ class UARTLeafManager:
     def __init__(self, interface, parentUID, logger=None):
         self.interface = interface
         self.baud = 0
+        self.parent = parentUID
         self.UID = f"{parentUID}:{interface}"
         self.command_topic = f"Commands/{self.UID}"
         self.response_topic = f"Devices/responses/{self.UID}"
-
+        self.pulse_topic = f"Pulse/leafs/{self.UID}"
+        self.pulse_freq = 30
+        self._last_pulse_time = time.time()
+        self.hardware_status_file = f"/dev/piUART/status/{self.interface}"
+        self.init_pulse()
         if not logger:
             self.logger = RotatingLogger(f"UARTLeafManager-{interface}.log")
         else:
@@ -34,6 +41,7 @@ class UARTLeafManager:
         self.rxQueue = queue.PriorityQueue(maxsize=1000)
         self.txQueue = queue.PriorityQueue(maxsize=1000)
         self.parser = example_parser(interface, parent=self.UID, txQueue=self.txQueue)
+        self.has_valid_parser = False
 
     def scan_baud(self):
         pass
@@ -60,10 +68,22 @@ class UARTLeafManager:
         # add flags, exception handling
         while self.running:
             while not self.parser.validate_hardware():
-                self.find_parser()
-            if not self.parser.is_running():
+                self.find_parser()  # get the next parser in the list
+            if self.has_valid_parser and not self.parser.is_running():
                 self.parser.loop_start()
-            # generate pulse
+            if time.time() > (self._last_pulse_time + self.pulse_freq):
+                if not self.txQueue.full():
+                    try:
+                        # calls to full() do not guarantee space since the leaf may have written or acquired the lock
+                        # before the following .put gets called. In the event we try to put when the queue is full because
+                        # the leaf wrote the last slot, then put will block until there is space. If in addition to all this
+                        # there is a network issue happening and the queue is not emptying, then the program will freeze here forever.
+                        self.txQueue.put(self.pulsemsg(), timeout=1)
+                        self._last_pulse_time = time.time()
+                    except queue.Full:
+                        self.logger.critical(
+                            "The txQueue is full and a pulse message is lost."
+                        )
 
         self.stopped = True
 
@@ -76,14 +96,43 @@ class UARTLeafManager:
         # should we check the flags?
         return self.runner.is_alive()
 
+    def init_pulse(self):
+        self._pulse["UID"] = self.UID
+        self._pulse["parent-node"] = self.parent
+        self.pulse()
+
     def pulse(self):
-        self.UID
-        self.parser.DID
-        self.parser.vent_type
-        self.parser.baud  # last known good baud
-        self.parser.protocol
-        # use self.parser.status and your own knowledge of hardware to define status here
-        timestamp = (str(int(time.time() * 1000)),)
+        self._pulse["DID"] = self.parser.DID
+        self._pulse["vent-type"] = self.parser.vent_type
+        self._pulse["baud"] = self.parser.baud  # last known good baud
+        self._pulse["protocol"] = self.parser.protocol
+        self._pulse["device-status"] = self.device_status()
+        self._pulse["timestamp"] = str(int(time.time() * 1000))
+
+    def pulsemsg(self):
+        self.pulse()
+        return (
+            3,
+            Message(
+                topic=self.pulse_topic, payload=json.dumps(self._pulse), qos=self.qos
+            ),
+        )
+
+    def device_status(self):
+        if not self.cable_is_connected():
+            return "UNPLUGGED"
+        elif not self.parser.status:
+            return "PLUGGED_IN"
+        else:
+            return self.parser.status
+
+    def cable_is_connected(self):
+        try:
+            with open(self.hardware_status_file, "r") as f:
+                hw_status = f.readline().strip().rstrip("\n")
+        except:
+            hw_status = "?"
+        return hw_status[0] == "1"
 
     def loop_stop(self):
         self.running = False

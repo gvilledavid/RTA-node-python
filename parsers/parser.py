@@ -40,9 +40,10 @@ class parser:
             del obj.parsers_in_use[id]
             return True
         return False
-    
-    def reload_parser(obj,id):
-        
+
+    def reload_parser(obj, id):
+        pass
+
     def __init__(
         self, tty: str, parent: str, txQueue: queue.PriorityQueue, logger=None
     ):
@@ -61,6 +62,12 @@ class parser:
             2  # how fast you want the leaf object to send info down the txqueue
         )
         self._running = False
+
+        # pulse info:
+        self.DID = ""
+        self.vent_type = ""
+        self.baud = 9600
+        self.protocol = ""
         self._init()
 
     def _init(self):
@@ -76,7 +83,7 @@ class parser:
         pass
 
     def __del__(self):
-        self.stop_loop()
+        self.loop_stop()
 
     def get_uart_data(self, tty, brate, tout, cmd, par=serial.PARITY_NONE, rts_cts=0):
         with serial.Serial(tty, brate, timeout=tout, parity=par, rtscts=rts_cts) as ser:
@@ -90,7 +97,7 @@ class parser:
         for brate in self.baud_rates:
             self.serial_info["brate"] = brate
             dg = self.get_uart_data()
-            err = create_packet(dg, debug=True)[1]
+            err = self.create_packet(dg, debug=True)[1]
             if not err:
                 return
         print("no valid baud rate found")
@@ -152,14 +159,14 @@ class parser:
     def set_poll_freq(self, seconds):
         self._poll_freq = seconds
 
-    def put(self, item):
+    def put(self, priority, item):
         if not self.queue.full():
             try:
-                self.queue.put(item=item, timeout=2)
+                self.queue.put(item=(priority, item), timeout=2)
                 return True
             except queue.Full:
                 self.queue.queue.pop()
-                return self.put(item)
+                return self.put(priority, item)
             except TimeoutError:
                 return False
             except:
@@ -176,6 +183,9 @@ class example_parser(parser):
 
     def poll(self):
         self.put((5, Message(payload=f"test{time.time()}", topic="test")))
+
+    def stop_loop(self):
+        pass
 
 
 if __name__ == "__main__":
