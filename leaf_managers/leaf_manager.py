@@ -44,7 +44,15 @@ class UARTLeafManager:
         self.has_valid_parser = False
 
     def scan_baud(self):
-        pass
+        for brate in self.parser.bauds:
+            dg = self.parser.get_uart_data(self.parser.cmd)
+            err = self.parser.validate_packet(dg)
+            if not err:
+                self.baud = brate
+                self.parser.set_baud(brate)
+                return brate
+        self.logger(f"No valid baud found for {self.parser.name}")
+        return False
 
     def process_commands(self, brate):
         # swap baud rate(brate): self.parser.serial_info["brate"]=brate

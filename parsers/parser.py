@@ -93,6 +93,9 @@ class parser:
             ser.close()
             return line
 
+    def set_baud(self, brate):
+        self.serial_info["brate"] = brate
+
     def scan_baud(self):
         for brate in self.baud_rates:
             self.serial_info["brate"] = brate

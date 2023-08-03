@@ -1,0 +1,259 @@
+{
+    "topic1": {
+        "topic": "Devices/phys/DEVICE_ID",
+        "example_payloads": [
+            {
+                "64052": 7,
+                "NOM_ECG_V_P_C_CNT": 0,
+                "NOM_ECG_TIME_PD_QT_GL": "Not a number",
+                "NOM_ECG_TIME_PD_QTc": "Not a number",
+                "NOM_ECG_TIME_PD_QTc_DELTA": "Not a number",
+                "NOM_ECG_TIME_PD_QT_HEART_RATE": "Not a number",
+                "ETCO2": 30,
+                "UID": "12:34:a3:bf:ed:12:ttyAMA3",
+                "timestamp": "1690991419494"
+            },
+            {
+                "64052": 7,
+                "NOM_ECG_V_P_C_CNT": 0,
+                "NOM_ECG_TIME_PD_QT_GL": "Not a number",
+                "NOM_ECG_TIME_PD_QTc": "Not a number",
+                "NOM_ECG_TIME_PD_QTc_DELTA": "Not a number",
+                "NOM_ECG_TIME_PD_QT_HEART_RATE": "Not a number",
+                "ETCO2": 30,
+                "UID": "12:34:a3:bf:ed:12:ttyAMA3",
+                "timestamp": "1690991419494"
+            },
+            {
+                "4822": 110,
+                "SPO2": 97.4,
+                "4BB0": 0.46,
+                "HR": 110,
+                "RR": 7,
+                "NOM_ECG_AMPL_ST_I": 0.7000000000000001,
+                "NOM_ECG_AMPL_ST_II": 0.5,
+                "NOM_ECG_AMPL_ST_AVF": 0.2,
+                "UID": "12:34:a3:bf:ed:12:ttyAMA3",
+                "timestamp": "1690991419494"
+            },
+            {
+                "NOM_ECG_TIME_PD_QTc_DELTA": "Not a number",
+                "NOM_ECG_TIME_PD_QT_HEART_RATE": "Not a number",
+                "ETCO2": "Not a number",
+                "BP_SYS": 95,
+                "BP_DIA": 58,
+                "BP": 71,
+                "F0E5": 66,
+                "timestamp": "1690991423337",
+                "UID": "e4:5f:01:db:9e:8d:ttyAMA3"
+            },
+            {
+                "NOM_ECG_TIME_PD_QTc_DELTA": "Not a number",
+                "NOM_ECG_TIME_PD_QT_HEART_RATE": "Not a number",
+                "ETCO2": "Not a number",
+                "BP_SYS": 95,
+                "BP_DIA": 58,
+                "BP": 71,
+                "F0E5": 66,
+                "timestamp": "1690991423337",
+                "UID": "e4:5f:01:db:9e:8d:ttyAMA3"
+            },
+            {
+                "NOM_TEMP": 33.18,
+                "SPO2": 100,
+                "timestamp": "1690991423035",
+                "UID": "e4:5f:01:db:9e:8d:ttyAMA3"
+            },
+            {
+                "NOM_ECG_TIME_PD_QTc_DELTA": "Not a number",
+                "NOM_ECG_TIME_PD_QT_HEART_RATE": "Not a number",
+                "ETCO2": "Not a number",
+                "BP_SYS": 95,
+                "BP_DIA": 58,
+                "BP": 71,
+                "F0E5": 66,
+                "timestamp": "1690991422307",
+                "UID": "e4:5f:01:db:9e:8d:ttyAMA3"
+            },
+            {
+                "4822": 68,
+                "4BB0": 0.34,
+                "HR": 69,
+                "RR": 30,
+                "NOM_ECG_AMPL_ST_I": 0,
+                "NOM_ECG_AMPL_ST_II": 0,
+                "NOM_ECG_AMPL_ST_AVF": 0,
+                "NOM_ECG_V_P_C_CNT": 0,
+                "NOM_ECG_TIME_PD_QT_GL": "Not a number",
+                "NOM_ECG_TIME_PD_QTc": "Not a number",
+                "timestamp": "1690991422157",
+                "UID": "e4:5f:01:db:9e:8d:ttyAMA3"
+            }
+        ]
+    },
+    "topic2": {
+        "topic": "Devices/settings/DEVICE_ID",
+        "example_payloads": [
+            {
+                "VtID": "980 35B2005335",
+                "Type": "INVASIVE",
+                "Mode": "PRVC",
+                "MType": "VC+",
+                "SType": "",
+                "SetRate": "26.0",
+                "SetVT": "350.0",
+                "SetFlow": "",
+                "SetFIO2": "40",
+                "SetPEEP": "5.0",
+                "SetPSV": "",
+                "SetP": "",
+                "SetTi": "0.90",
+                "UID": "e4:5f:01:db:9e:8c:ttyAMA0",
+                "timestamp": "1690991420217"
+            },
+            {
+                "VtID": "840 3510072467",
+                "Type": "INVASIVE",
+                "Mode": "A/C-PC",
+                "SetRate": "9.0",
+                "SetVT": "1.52",
+                "SetFlow": "120.0",
+                "SetFIO2": "21",
+                "SetPEEP": "5.0",
+                "SetPSV": " ",
+                "SetP": "15",
+                "SetTi": "1.00",
+                "UID": "12:34:a3:bf:ed:12:ttyAMA0",
+                "timestamp": "1690991491179"
+            }
+        ]
+    },
+    "topic3": {
+        "topic": "Devices/vitals/DEVICE_ID",
+        "example_payloads": [
+            {
+                "TotBrRate": "26.0",
+                "VTe": "341.0",
+                "MinVent": "8.880",
+                "PIP": "38.0",
+                "Ti": "17.0",
+                "VTi": "343.0",
+                "PEEPi": "",
+                "RSBI": "",
+                "TiTtot": "",
+                "PEEP": "5.2",
+                "Raw": "21.0",
+                "Pplat": "49.0",
+                "NIF": "0.0",
+                "UID": "e4:5f:01:db:9e:8c:ttyAMA0",
+                "timestamp": "1690991545551"
+            },
+            {
+                "Pplat": "0.0",
+                "TotBrRate": "10.0",
+                "VTe": "0.572",
+                "MinVent": "5.810",
+                "PIP": "23.0",
+                "Ti": ".0589",
+                "VTi": "0.589",
+                "PEEPi": "",
+                "RSBI": "",
+                "TiTtot": "",
+                "PEEP": "5.9",
+                "Raw": "0.0",
+                "NIF": "0.0",
+                "UID": "00:00:a3:bf:ed:12:ttyAMA0",
+                "timestamp": "1690991524610"
+            }
+        ]
+    },
+    "topic4": {
+        "topic": "Pulse/leafs/DEVICE_ID",
+        "example_payloads": [
+            {
+                "UID": "00:00:a3:bf:ed:12:ttyAMA0",
+                "DID": "840 3510072467",
+                "vent-type": "PB980",
+                "baud": 115200,
+                "protocol": "DCI 3.0",
+                "parent-node": "00:00:a3:bf:ed:12",
+                "device-status": "MONITORING",
+                "timestamp": "1690991642449"
+            },
+            {
+                "UID": "e4:5f:01:db:9e:8d:ttyAMA3",
+                "DID": "e10000020001",
+                "vent-type": "e10000020001",
+                "baud": 115200,
+                "protocol": "MIB",
+                "parent-node": "e4:5f:01:db:9e:8d",
+                "device-status": "MONITORING",
+                "timestamp": "1690991685591"
+            }
+        ]
+    },
+    "topic5": {
+        "topic": "Pulse/nodes/DEVICE_ID",
+        "example_payloads": [
+            {
+                "UID": "00:00:a3:bf:ed:12",
+                "Static-hostname": "ceNodeDev012",
+                "Icon-name": "computer",
+                "Machine-ID": "927ea307fc204f60b7a6cfe9476ad45c",
+                "Boot-ID": "970e7f7b8e8e42b1af24595ccbbd9e50",
+                "Operating-System": "Ubuntu 20.04.3 LTS",
+                "Kernel": "Linux 5.4.0-1022-raspi",
+                "Architecture": "arm64",
+                "Model": "Raspberry Pi 4 Model B Rev 1.5",
+                "Ram": "7945624",
+                "disk-size": "29.7G",
+                "disk-avail": 16589120,
+                "networking": [
+                    {
+                        "name": "eth0",
+                        "mac": "00:00:a3:bf:ed:12",
+                        "ipv4": "",
+                        "ipv6": ""
+                    },
+                    {
+                        "name": "wlan0",
+                        "mac": "00:00:a3:bf:ed:13",
+                        "ipv4": "10.1.1.141/24",
+                        "ipv6": "fe80::614a:5a34:76da:ce7/64"
+                    }
+                ],
+                "temperature": "65.2C",
+                "uptime": "489041.80",
+                "core-voltage": "0.8600V",
+                "throttled-status": [
+                    "no-alarms"
+                ],
+                "connected-leafs": {
+                    "ttyAMA0": 1,
+                    "ttyAMA1": 0,
+                    "ttyAMA2": 0,
+                    "ttyAMA3": 1,
+                    "ttyAMA4": 0
+                },
+                "battery": {
+                    "status": "No battery",
+                    "Bat": 0,
+                    "battery-timeleft": 9999,
+                    "AC": "connected",
+                    "charge-voltage": 5,
+                    "battery-voltage": 0
+                },
+                "time": {
+                    "Local-time": "Thu 2023-05-04 08:54:15 EDT",
+                    "Universal-time": "Thu 2023-05-04 12:54:15 UTC",
+                    "RTC-time": "n/a",
+                    "Time-zone": "America/New_York (EDT, -0400)",
+                    "System-clock-synchronized": "yes",
+                    "NTP-service": "active",
+                    "RTC-in-local-TZ": "yes"
+                },
+                "timestamp": "1690991642449"
+            }
+        ]
+    }
+}
