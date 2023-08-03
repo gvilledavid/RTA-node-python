@@ -60,6 +60,10 @@ class Message(MQTTMessage):
             self.mid = args[0].mid
             self._topic = args[0]._topic
             self.payload = args[0].payload
+            if isinstance(self.payload, dict):
+                self.payload = json.dumps(self.payload)
+            else:
+                self.payload = str(self.payload)
             self.qos = args[0].qos
             self.retain = args[0].retain
         elif len(args) > 0:
