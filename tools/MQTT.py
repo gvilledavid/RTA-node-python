@@ -114,7 +114,7 @@ class Message(MQTTMessage):
 
 
 class MQTT:
-    def __init__(self, brokerName, sublist=None, logger=None, pub_mask=None):
+    def __init__(self, brokerName, sublist=[], logger=None, pub_mask=None):
         if not logger:
             self.logger = RotatingLogger(f"{brokerName}-MQTT.log")
         else:
@@ -168,8 +168,9 @@ class MQTT:
     def connect_mqtt(self):
         def on_connect(client, userdata, flags, rc):
             if rc == 0:  # connected successfully
-                for topic in client.parent.subscription_topics:
-                    client.subscribe(topic)
+                if client.parent.subscription_topics:
+                    for topic in client.parent.subscription_topics:
+                        client.subscribe(topic)
                 if client.parent.was_connected:
                     client.parent.status = "RECONNECTED"
                     client.parent.logger.info(
@@ -365,7 +366,7 @@ class MQTT:
                         self.logger.info("txqueue empty, not returning anything.")
                     except:
                         self.logger.critical("Unhandled exception in MQTT.get")
-        return None
+        return (10, None)
 
     def qsize(self):
         return self.txQueue.qsize()
