@@ -1,0 +1,1 @@
+scp -i C:\Users\Srazo\.ssh\id_rsa -r "C:\Users\Srazo\OneDrive - Convergent Engineering\Documents2\github\RTA-node-python\*" ubuntu@10.1.1.230:/usr/src/RTA/RTA-node-python/.

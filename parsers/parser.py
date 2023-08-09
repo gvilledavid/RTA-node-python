@@ -4,6 +4,7 @@ import time
 import queue
 import importlib
 import serial
+import random
 
 # local includes
 sys.path.append(
@@ -51,7 +52,11 @@ class parser:
             self.logger = RotatingLogger(f"ParserManager-{tty}.log")
         else:
             self.logger = logger
-        self.interface = f"/dev/{tty}"
+
+        if tty[0:2].upper() == "COM":  # windows-like
+            self.interface = tty
+        else:
+            self.interface = f"/dev/{tty}"
         self.fields = []
         self._stopped = True
         self.serial_info = {}
@@ -85,7 +90,12 @@ class parser:
     def __del__(self):
         self.loop_stop()
 
-    def get_uart_data(self, tty, brate, tout, cmd, par=serial.PARITY_NONE, rts_cts=0):
+    def get_uart_data(
+        self, tty, brate, tout, cmd, par=serial.PARITY_NONE, rts_cts=0, debug=False
+    ):
+        if debug:
+            time.sleep(2 * random.random())
+            return b"MISCF,1225,169 ,\x0216:02 ,840 3510072467    ,APR 04 2023 ,INVASIVE ,A/C   ,VC    ,      ,V-Trig,9.0   ,1.520 ,120.0 ,21    ,      ,8.0   ,0.0   ,20    ,0.580 ,10.0  ,70.0  ,100   ,      ,      ,RAMP  ,VC    ,      ,      ,      ,SQUARE,OFF   ,51    ,      ,24.500,0.470 ,1900  ,OFF   ,1900  ,OFF   ,OFF   ,      ,10.3  ,8.8   ,      ,      ,      ,      ,         ,      ,      ,HME               ,      ,Disabled ,20    ,      ,      ,      ,43.0  ,      ,      ,      ,      ,      ,ADULT    ,      ,      ,30.0  ,9.0   ,1.312 ,11.800,30.0  ,11.0  ,7.80  ,1:7.80,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,7.9   ,      ,      ,0.0   ,0.0   ,0.0   ,0.0   ,0.0   ,      ,133.0 ,5.3   ,      ,85.0  ,0.0   ,      ,0.0   ,0.0   ,0.000 ,OFF   ,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,LOW   ,NORMAL,NORMAL,NORMAL,NORMAL,RESET ,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,      ,      ,OFF   ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,\x03\r"
         with serial.Serial(tty, brate, timeout=tout, parity=par, rtscts=rts_cts) as ser:
             ser.flush()
             ser.write(cmd)
