@@ -13,6 +13,7 @@ sys.path.append(
 from tools.RotatingLogger import RotatingLogger
 from parsers.parser import example_parser
 from tools.MQTT import Message
+from parsers.parser import import_parsers
 
 
 class UARTLeafManager:
@@ -40,6 +41,7 @@ class UARTLeafManager:
         self.stopped = True
         self.rxQueue = queue.PriorityQueue(maxsize=1000)
         self.txQueue = queue.PriorityQueue(maxsize=1000)
+        parser_list = import_parsers()
         self.parser = example_parser(interface, parent=self.UID, txQueue=self.txQueue)
         self.has_valid_parser = False
 

@@ -14,8 +14,41 @@ from tools.RotatingLogger import RotatingLogger
 from tools.MQTT import Message
 
 
-class enumerate_parsers:
-    pass
+def get_parser_folder():
+    return os.path.dirname(os.path.realpath(__file__))
+
+
+def enumerate_parsers():
+    PARSER_FOLDER = get_parser_folder()
+    return [
+        potential_parser
+        for potential_parser in os.listdir(PARSER_FOLDER)
+        if os.path.isdir(os.path.join(PARSER_FOLDER, potential_parser))
+        and not (potential_parser[0] == "_")
+    ]
+
+
+def import_parsers():
+    PARSER_FOLDER = get_parser_folder()
+    if PARSER_FOLDER not in sys.path:
+        sys.path.append(PARSER_FOLDER)
+    return {x: importlib.import_module(f"{x}.parser") for x in enumerate_parsers()}
+
+
+# use like x[0].parser("ttyAMA1","123",queue)
+
+
+def reimport_parsers():
+    PARSER_FOLDER = get_parser_folder()
+    importlib.invalidate_caches()
+    imported_parsers = []
+    for x in enumerate_parsers():
+        # if x in sys.modules:
+        #    imported_parsers.append(importlib.reload( ...))
+        # else:
+        #    imported_parsers.append(importlib.import_module("parser.parser",x))
+        pass
+    return imported_parsers
 
 
 class parser:
@@ -73,6 +106,8 @@ class parser:
         self.vent_type = ""
         self.baud = 9600
         self.protocol = ""
+
+        self.UID = f"{parent}:{tty}"
         self._init()
 
     def _init(self):
@@ -203,8 +238,10 @@ class example_parser(parser):
 
 if __name__ == "__main__":
     q = queue.PriorityQueue(maxsize=3)
-    x = example_parser(tty="ttyAMA1", parent="123", txQueue=q)
-    x.loop_start()
+    x = import_parsers()
+    print(x)
+    p = x["PB840"].parser(tty="ttyAMA1", parent="123", txQueue=q)
+    p.loop_start()
     while True:
         if q.not_empty:
             print(f"Recieved {q.get()}")
