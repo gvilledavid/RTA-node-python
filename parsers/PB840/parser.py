@@ -43,10 +43,10 @@ class parser(parsers.parser.parser):
             "rts_cts": 0,
         }
         self.vitals_priority = 6
-        self.vitals_topic = f"Device/vitals/{self.UID}"
+        self.vitals_topic = f"Devices/vitals/{self.UID}"
         self.settings_priority = 7
-        self.settings_topic = f"Device/settings/{self.UID}"
-        self.legacy_topic = f"Device/vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
+        self.settings_topic = f"Devices/settings/{self.UID}"
+        self.legacy_topic = f"Device/Vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
         self.qos = 1
         self.send_legacy = True
         # self.fields will  be parsers.parser.send_all
@@ -84,9 +84,10 @@ class parser(parsers.parser.parser):
         print("packet differences = ", diffs)
 
     def send_message(self):
+        # respect self.mode setting when building packet
         if 4 <= len(self.serial_info):
             dg = self.get_uart_data(
-                **self.serial_info, debug=True
+                debug=True
             )  # get_ventilator_data(**self.serial_info)
             msg, err = create_packet(dg, debug=True)
         else:
@@ -177,7 +178,7 @@ class parser(parsers.parser.parser):
 
                 return msg, [-1 if False in responses else 0]
 
-            self.put()
+            # self.put()
         else:
             return msg, [-1]
 
@@ -190,6 +191,7 @@ class parser(parsers.parser.parser):
                 f"{self.success_count}/{self.total_count} Send at`{msg['v']}` to topic `{self.legacy_topic}`"
             )
             self.packets_since_last_failure = 0
+            self._last_send = time.time()
         else:
             self.packets_since_last_failure += 1
             print(

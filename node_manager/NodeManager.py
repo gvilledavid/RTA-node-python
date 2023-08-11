@@ -125,6 +125,7 @@ class NodeManager:
                         try:
                             priority, msg = self.leafs[leaf].txQueue.get()
                             # using msg.topic, decide if it is an action you can act on
+                            print(msg)
                             for b in self.brokers:
                                 b.put(priority, msg)
                         except:

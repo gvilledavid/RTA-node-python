@@ -11,7 +11,7 @@ sys.path.append(
     os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 )  # add RTA-node-python to path
 from tools.RotatingLogger import RotatingLogger
-from parsers.parser import example_parser
+from parsers.parser import example_parser, default_parser
 from tools.MQTT import Message
 from parsers.parser import import_parsers
 
@@ -31,7 +31,9 @@ class UARTLeafManager:
         self.pulse_freq = 30
         self._last_pulse_time = time.time()
         self.hardware_status_file = f"/dev/piUART/status/{self.interface}"
-        self.init_pulse()
+        self.qos = 1
+        self.retain = False
+
         if not logger:
             self.logger = RotatingLogger(f"UARTLeafManager-{interface}.log")
         else:
@@ -42,12 +44,32 @@ class UARTLeafManager:
         self.rxQueue = queue.PriorityQueue(maxsize=1000)
         self.txQueue = queue.PriorityQueue(maxsize=1000)
         parser_list = import_parsers()
-        self.parser = example_parser(interface, parent=self.UID, txQueue=self.txQueue)
-        self.has_valid_parser = False
+        # scan here instead of assigning like below
+        parser_name = ""
+        match interface:
+            case "ttyAMA1":
+                parser_name = "intellivue"
+            case "ttyAMA2":
+                parser_name = "V60"
+            case "ttyAMA3":
+                parser_name = "PB840"
+            case "ttyAMA4":
+                parser_name = "PB840_waveforms"
+        if parser_list.get(parser_name, None):
+            self.parser = parser_list[parser_name].parser(
+                interface, parent=self.UID, txQueue=self.txQueue
+            )
+            self.has_valid_parser = True
+        else:
+            self.parser = default_parser(
+                interface, parent=self.UID, txQueue=self.txQueue
+            )
+            self.has_valid_parser = False
+        self.init_pulse()
 
     def scan_baud(self):
         for brate in self.parser.bauds:
-            dg = self.parser.get_uart_data(self.parser.cmd)
+            dg = self.parser.get_uart_data()
             err = self.parser.validate_packet(dg)
             if not err:
                 self.baud = brate
@@ -107,6 +129,7 @@ class UARTLeafManager:
         return self.runner.is_alive()
 
     def init_pulse(self):
+        self._pulse = {}
         self._pulse["UID"] = self.UID
         self._pulse["parent-node"] = self.parent
         self.pulse()

@@ -92,21 +92,28 @@ class parser:
             self.interface = f"/dev/{tty}"
         self.fields = []
         self._stopped = True
-        self.serial_info = {}
+
         self.baud_rates = []
         self.queue = txQueue
         self._poll_freq = 2  # how fast your poll loop runs
-        self._send_freq = (
-            2  # how fast you want the leaf object to send info down the txqueue
-        )
+        self._send_freq = 2  # how fast the leaf will send info down the txqueue
+
         self._running = False
 
         # pulse info:
+        self.status = ""  # change to MONITORING, STANDBY, or others
         self.DID = ""
         self.vent_type = ""
         self.baud = 9600
         self.protocol = ""
-
+        self.serial_info = {
+            "tty": self.interface,
+            "brate": self.baud,
+            "tout": 2,
+            "cmd": "",
+            "par": serial.PARITY_NONE,
+            "rts_cts": 0,
+        }
         self.UID = f"{parent}:{tty}"
         self._init()
 
@@ -125,15 +132,19 @@ class parser:
     def __del__(self):
         self.loop_stop()
 
-    def get_uart_data(
-        self, tty, brate, tout, cmd, par=serial.PARITY_NONE, rts_cts=0, debug=False
-    ):
+    def get_uart_data(self, debug=False):
         if debug:
             time.sleep(2 * random.random())
             return b"MISCF,1225,169 ,\x0216:02 ,840 3510072467    ,APR 04 2023 ,INVASIVE ,A/C   ,VC    ,      ,V-Trig,9.0   ,1.520 ,120.0 ,21    ,      ,8.0   ,0.0   ,20    ,0.580 ,10.0  ,70.0  ,100   ,      ,      ,RAMP  ,VC    ,      ,      ,      ,SQUARE,OFF   ,51    ,      ,24.500,0.470 ,1900  ,OFF   ,1900  ,OFF   ,OFF   ,      ,10.3  ,8.8   ,      ,      ,      ,      ,         ,      ,      ,HME               ,      ,Disabled ,20    ,      ,      ,      ,43.0  ,      ,      ,      ,      ,      ,ADULT    ,      ,      ,30.0  ,9.0   ,1.312 ,11.800,30.0  ,11.0  ,7.80  ,1:7.80,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,7.9   ,      ,      ,0.0   ,0.0   ,0.0   ,0.0   ,0.0   ,      ,133.0 ,5.3   ,      ,85.0  ,0.0   ,      ,0.0   ,0.0   ,0.000 ,OFF   ,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,LOW   ,NORMAL,NORMAL,NORMAL,NORMAL,RESET ,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,      ,      ,OFF   ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,\x03\r"
-        with serial.Serial(tty, brate, timeout=tout, parity=par, rtscts=rts_cts) as ser:
+        with serial.Serial(
+            port=self.serial_info["tty"],
+            baudrate=self.serial_info["brate"],
+            timeout=self.serial_info["tout"],
+            parity=self.serial_info["par"],
+            rtscts=self.serial_info["rts_cts"],
+        ) as ser:
             ser.flush()
-            ser.write(cmd)
+            ser.write(self.serial_info["cmd"])
             line = ser.readline()
             ser.close()
             return line
@@ -221,6 +232,15 @@ class parser:
                 return False
         return False
 
+    def datamode(self, mode):
+        match mode:
+            case "send_all":
+                self.mode = parser.send_all
+            case "send_named":
+                self.mode = parser.send_named
+            case "send_delta":
+                self.mode = parser.send_delta
+
 
 class example_parser(parser):
     def validate_hardware(self):
@@ -231,6 +251,57 @@ class example_parser(parser):
 
     def poll(self):
         self.put((5, Message(payload=f"test{time.time()}", topic="test")))
+
+    def stop_loop(self):
+        pass
+
+
+class default_parser(parser):
+    def _init(self):
+        self.name = "Empty parser"
+        self.DID = "NA"
+        self.vent_type = ""
+        self.baud = 0
+        self.protocol = ""
+        self.serial_info = {
+            "tty": self.interface,
+            "brate": self.baud,
+            "tout": 0.5,
+            "cmd": b"SNDF\r",
+            "par": serial.PARITY_NONE,
+            "rts_cts": 0,
+        }
+        self.vitals_priority = 6
+        self.vitals_topic = f"Device/vitals/{self.UID}"
+        self.settings_priority = 7
+        self.settings_topic = f"Device/settings/{self.UID}"
+        self.legacy_topic = f"Device/vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
+        self.qos = 1
+        self.send_legacy = True
+        self.status = ""
+        self.bauds = [9600, 19200, 38400, 115200]
+        # self.fields will  be parsers.parser.send_all
+        #    or parser.send_delta
+        #    or parser.send_named
+        self._last_send = 0
+        self.last_packet = {}
+
+    def poll(self):
+        if self._last_send + self._send_freq > time.time():
+            self._last_send = time.time()
+            self.put(
+                5,
+                Message(
+                    payload=f'\{"UID":"{self.UID}","timestamp":"{str(int(time.time()*1000))}"\}',
+                    topic=self.settings_topic,
+                ),
+            )
+
+    def validate_hardware(self):
+        return True
+
+    def validate_error_message(self, message):
+        return True
 
     def stop_loop(self):
         pass
