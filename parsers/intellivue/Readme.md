@@ -1,10 +1,5 @@
 # Intellivue
-This project is a simplified version of the [PERSEUS](https://github.com/derekmerck/PERSEUS) project by [derekmerck](https://github.com/derekmerck).  The intention is to use with a mqtt server from a raspberry pi.
-
-## Delay
-The maximum delay time is ~3 seconds according to a 10 minute probe using an MP70 at a baudrate of 115200.  In an industry where every second counts, this should be further analyzed for reliability before use on patients.
-
-![Packet Delays](packet_delays.png)
+This project is a simplified version of the [PERSEUS](https://github.com/derekmerck/PERSEUS) project by [derekmerck](https://github.com/derekmerck).  The intention is to use with a mqtt server from a raspberry pi. 
 
 
 ##Legacy packets

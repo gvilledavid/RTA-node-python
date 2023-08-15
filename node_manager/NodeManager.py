@@ -106,12 +106,17 @@ class NodeManager:
             if time.time() - self.last_pulse > self.pulse_freq:
                 if self.pulse.dataready:
                     # pulse.pulse, pulse.pulse_topic to make a Message
+                    msg = Message(payload=pulse.pulse, topic=pulse.pulse_topic)
+                    for b in self.brokers:
+                        b.put(priority, msg)
                     self.last_pulse = time.time()
                 elif not self.pulse.updating:
                     self.pulse.update()
             elif time.time() - self.last_brief > self.brief_freq:
                 if self.pulse.dataready:
-                    # pulse.pulse_brief, pulse.pulse_topic to make a Message
+                    msg = Message(payload=pulse.brief, topic=pulse.pulse_topic)
+                    for b in self.brokers:
+                        b.put(priority, msg)
                     self.last_brief = time.time()
                 elif not self.pulse.updating:
                     self.pulse.brief_update()
