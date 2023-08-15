@@ -64,7 +64,7 @@ class NodeManager:
                 pass
             if b.name == "Azure":
                 b.add_to_mask("Device/#")  # only publish to Device in Azure
-
+                b.add_to_mask("Pulse/#")
         self.pulse_freq = 60
         self.brief_freq = 10
 
