@@ -17,17 +17,17 @@ class fake_windows_pulse:
         self.executiontime = 0
         self.pulse = {
             "UID": self.mac,
-            "Static-hostname": "windows",
-            "networking": [
-                {"name": "eth0", "mac": self.mac, "ipv4": "", "ipv6": ""},
+            "StaticHostname": "windows",
+            "Networking": [
+                {"Name": "eth0", "mac": self.mac, "ipv4": "", "ipv6": ""},
                 {
-                    "name": "wlan0",
-                    "mac": self.mac,
-                    "ipv4": "192.168.1.180/16",
-                    "ipv6": "fe80::7277:33d9:e9c8:1658/64",
+                    "Name": "wlan0",
+                    "Mac": self.mac,
+                    "IPV4": "192.168.1.180/16",
+                    "IPV6": "fe80::7277:33d9:e9c8:1658/64",
                 },
             ],
-            "connected-leafs": {
+            "ConnectedLeafs": {
                 "ttyAMA0": "?",
                 "ttyAMA1": "1",
                 "ttyAMA2": "0",
@@ -35,8 +35,8 @@ class fake_windows_pulse:
                 "ttyAMA4": "1",
                 "": "?",
             },
-            "battery": {"Bat": 0},
-            "timestamp": str(int(time.time() * 1000)),
+            "Battery": {"Bat": 0},
+            "Timestamp": str(int(time.time() * 1000)),
         }
 
         self.pulse_topic = f"Pulse/nodes/{self.mac}"
@@ -60,7 +60,7 @@ class pulse:
             self.logger = logger
         else:
             self.logger = RotatingLogger("pulse.log", maxFileSize=32000, backupCount=1)
-        self.UID = self.get_networking()[0]["mac"]
+        self.UID = self.get_networking()[0]["Mac"]
         (
             self.rawpulse,
             self.legacy_topic,
@@ -120,9 +120,9 @@ class pulse:
             self.logger.debug("brief_run")
             starttime = time.time()
             hw = self.get_hardware()
-            self.rawpulse["connected-leafs"] = hw["uarts"]
-            self.rawpulse["networking"] = self.get_networking()
-            self.rawpulse["timestamp"] = str(int(time.time() * 1000))
+            self.rawpulse["ConnectedLeafs"] = hw["uarts"]
+            self.rawpulse["Networking"] = self.get_networking()
+            self.rawpulse["Timestamp"] = str(int(time.time() * 1000))
             self.pulse = self.to_json(self.rawpulse)
             self.brief = self.to_json(self.generate_brief_node_pulse(self.rawpulse))
             self.logger.debug(f"{self.brief}")
@@ -185,7 +185,21 @@ class pulse:
             list = subprocess.check_output("hostnamectl").split(b"\n")
             for param in list if list[-1].find(b":") > 0 else list[:-1]:
                 a, b = param.split(b":")
-                dict[str(a)[2:-1].strip().replace(" ", "-")] = str(b)[2:-1].strip()
+                key = str(a)[2:-1].strip()
+                spaceindex = key.find(" ")
+                index = 0
+                keyArr = []
+                while spaceindex != -1:
+                    keyArr.append(key[index : index + spaceindex])
+                    keyArr.append(key[index + spaceindex + 1].upper())
+
+                    index += spaceindex + 2
+                    if len(key) <= index:
+                        break
+                    spaceindex = key[index:].find(" ")
+                if len(key) > index:
+                    keyArr.append(key[index:])
+                dict["".join(keyArr)] = str(b)[2:-1].strip()
             Model = str(subprocess.check_output("cat /proc/cpuinfo", shell=True))[2:-3]
             Model = Model[Model.find("Model") :]
             Model = Model[Model.find(":") + 2 :]
@@ -200,13 +214,13 @@ class pulse:
                 .split("\\n")[0]
                 .split()
             )
-            dict["disk-size"] = drive[3]
+            dict["DiskSize"] = drive[3]
             avail = 0
             for partition in str(
                 subprocess.check_output(f'df |grep "/dev/{drive[0]}"', shell=True)
             )[2:-3].split("\\n"):
                 avail = avail + int(partition.split()[3])
-            dict["disk-avail"] = avail
+            dict["DiskAvailable"] = avail
 
         except:
             print("call to hostnamectl failed")
@@ -260,7 +274,7 @@ class pulse:
             inet6 = self.param_from_iface(link, "inet6")
             if iface != "lo":
                 interfaces.append(
-                    {"name": iface, "mac": mac, "ipv4": inet, "ipv6": inet6}
+                    {"Name": iface, "Mac": mac, "IPV4": inet, "IPV6": inet6}
                 )
         return interfaces
 
@@ -353,38 +367,57 @@ class pulse:
             uarts[uart] = status
         # str temperature, str voltage, array throttled_alerts dict uarts
         return {
-            "temp": temperature,
-            "core-voltage": voltage,
-            "throttled-status": throttled_alerts,
-            "uarts": uarts,
+            "Temperature": temperature,
+            "CoreVoltage": voltage,
+            "ThrottledStatus": throttled_alerts,
+            "UARTS": uarts,
         }
 
     def get_battery(self):
         dict = {
-            "status": "No battery",
-            "Bat": 0,
-            "battery-timeleft": 9999,
+            "Status": "No battery",
+            "BatteryPercent": 0,
+            "TimeLeft": 9999,
             "AC": "connected",
-            "charge-voltage": 5,
-            "battery-voltage": 0,
+            "ACVoltage": "5.15",
+            "ChargeVoltage": 0,
+            "BatteryVoltage": 0,
         }
         return dict
 
     def get_time(self):
-        timedatectl = str(subprocess.check_output("timedatectl", shell=True))[
-            2:-3
-        ].split("\\n")
-        ret_dict = {}
-        for line in timedatectl:
-            if line.find(": ") < 0:
-                break
-            key, data = line.split(": ")
-            if key == "Warning":
-                break
-            else:
-                ret_dict[key.strip().replace(" ", "-")] = data.replace("\n", "").strip()
-        ret_dict["timestamp"] = str(int(time.time() * 1000))
-        return ret_dict
+        try:
+            timedatectl = subprocess.check_output("timedatectl", shell=True).split(
+                b"\n"
+            )
+            ret_dict = {}
+            for line in timedatectl:
+                if line.find(b": ") < 0:
+                    break
+                a, b = line.split(b": ")
+                if a == "Warning":
+                    break
+                else:
+                    key = str(a)[2:-1].strip()
+                    spaceindex = key.find(" ")
+                    index = 0
+                    keyArr = []
+                    while spaceindex != -1:
+                        keyArr.append(key[index : index + spaceindex])
+                        keyArr.append(key[index + spaceindex + 1].upper())
+
+                        index += spaceindex + 2
+                        if len(key) <= index:
+                            break
+                        spaceindex = key[index:].find(" ")
+                    if len(key) > index:
+                        keyArr.append(key[index:])
+                    ret_dict["".join(keyArr)] = str(b)[2:-1].strip()
+            ret_dict["Timestamp"] = str(int(time.time() * 1000))
+            return ret_dict
+        except:
+            self.logger.critical("error in call to timedatectl")
+            return {}
 
     def legacyPulse(self, mac, iface, ipv4, timestamp):
         mac = mac.lower().replace(":", "")
@@ -409,23 +442,23 @@ class pulse:
             return {
                 "UID": "12:54:d3:3b:9e:8d:ttyAMA0",
                 "DID": "35B1500404",
-                "vent-type": "PB980",
-                "baud": 9600,
-                "protocol": "840 DCI",
-                "parent-node": "12:54:d3:3b:9e:8d",
-                "device-status": "IDLE",
-                "timestamp": str(int(time.time() * 1000)),
+                "VentType": "PB980",
+                "Baud": 9600,
+                "Protocol": "840 DCI",
+                "ParentNode": "12:54:d3:3b:9e:8d",
+                "DeviceStatus": "IDLE",
+                "Timestamp": str(int(time.time() * 1000)),
             }
         else:
             return {
                 "UID": "",
                 "DID": "",
-                "vent-type": "",
-                "baud": "",
-                "protocol": "",
-                "parent-node": "",
-                "device-status": "",
-                "timestamp": str(int(time.time() * 1000)),
+                "VentType": "",
+                "Baud": "",
+                "Protocol": "",
+                "ParentNode": "",
+                "DeviceStatus": "",
+                "Timestamp": str(int(time.time() * 1000)),
             }
 
     def connected_device(
@@ -434,12 +467,12 @@ class pulse:
         return {
             "UID": f"{parent_node_mac}:{uart}",
             "DID": did,
-            "vent-type": vent_type,
+            "VentType": vent_type,
             "baud": baud,
-            "protocol": protocol,
-            "parent-node": parent_node_mac,
-            "device-status": status,
-            "timestamp": str(int(time.time() * 1000)),
+            "Protocol": protocol,
+            "ParentNode": parent_node_mac,
+            "DeviceStatus": status,
+            "Timestamp": str(int(time.time() * 1000)),
         }
 
     def to_json(self, input_dict):
@@ -448,43 +481,44 @@ class pulse:
 
     def generate_node_pulse(self, legacy=0):
         pulse = self.get_hostname_verbose()
-        pulse["networking"] = self.get_networking()
+        pulse["Networking"] = self.get_networking()
         hw = self.get_hardware()
-        pulse["temperature"] = hw["temp"]
+        pulse["Temperature"] = hw["Temperature"]
         try:
             uptime = str(subprocess.check_output("cat /proc/uptime", shell=True))[2:-3]
-            pulse["uptime"] = uptime[: uptime.find(" ")]
+            pulse["Uptime"] = uptime[: uptime.find(" ")]
         except:
             pass
-        pulse["core-voltage"] = hw["core-voltage"]
-        pulse["throttled-status"] = hw["throttled-status"]
-        pulse["connected-leafs"] = hw["uarts"]
-        pulse["battery"] = self.get_battery()
+        pulse["CoreVoltage"] = hw["CoreVoltage"]
+        pulse["ThrottledStatus"] = hw["ThrottledStatus"]
+        pulse["ConnectedLeafs"] = hw["UARTS"]
+        pulse["Battery"] = self.get_battery()
         dict_time = self.get_time()
-        pulse["time"] = dict_time
-        pulse["timestamp"] = dict_time.pop("timestamp")
-
+        pulse["Time"] = dict_time
+        pulse["Timestamp"] = dict_time.pop("Timestamp")
+        pulse["Uptime"] = str(subprocess.check_output("uptime -p", shell=True))[2:-3]
+        pulse["LastBoot"] = str(subprocess.check_output("uptime -s", shell=True))[2:-3]
         if legacy:
-            for iface in pulse["networking"]:
-                if iface["name"] == "wlan0":
+            for iface in pulse["Networking"]:
+                if iface["Name"] == "wlan0":
                     wlan = iface
-                elif iface["name"] == "eth0":
+                elif iface["Name"] == "eth0":
                     eth = iface
             try:
-                mac = wlan["mac"]
-                name = wlan["name"]
-                ip = wlan["ipv4"]
+                mac = wlan["Mac"]
+                name = wlan["Name"]
+                ip = wlan["IPV4"]
             except:
                 try:
-                    mac = eth["mac"]
-                    name = eth["name"]
-                    ip = eth["ipv4"]
+                    mac = eth["Mac"]
+                    name = eth["Name"]
+                    ip = eth["IPV4"]
                 except:
                     mac = " "
                     name = "wlan0"
                     ip = " "
             legacy_pulse_topic, legacy_pulse_message = self.legacyPulse(
-                mac, name, ip, pulse["timestamp"]
+                mac, name, ip, pulse["Timestamp"]
             )
             return pulse, legacy_pulse_topic, legacy_pulse_message
         return pulse
@@ -495,11 +529,13 @@ class pulse:
         else:
             verbose_pulse = from_dict
         brief_pulse = {"UID": self.UID}
-        brief_pulse["Static-hostname"] = verbose_pulse["Static-hostname"]
-        brief_pulse["networking"] = verbose_pulse["networking"]
-        brief_pulse["connected-leafs"] = verbose_pulse["connected-leafs"]
-        brief_pulse["battery"] = {"Bat": verbose_pulse["battery"]["Bat"]}
-        brief_pulse["timestamp"] = str(
+        brief_pulse["StaticHostname"] = verbose_pulse["StaticHostname"]
+        brief_pulse["networking"] = verbose_pulse["Networking"]
+        brief_pulse["ConnectedLeafs"] = verbose_pulse["ConnectedLeafs"]
+        brief_pulse["Battery"] = {
+            "BatteryPercent": verbose_pulse["Battery"]["BatteryPercent"]
+        }
+        brief_pulse["Timestamp"] = str(
             int(time.time() * 1000)
         )  # verbose_pulse["timestamp"]
         return brief_pulse

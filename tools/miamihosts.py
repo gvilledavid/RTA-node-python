@@ -1,3 +1,11 @@
+#!/bin/python3
+
+import os, sys, time, subprocess
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from tools.MQTT import get_mac
+
+
 def convert_function():
     lookup = [
         ["ceNodeDev000", "E4:5F:01:A6:E5:BA", "E4:5F:01:A6:E5:BC", "10.130.56.201"],
@@ -92,3 +100,20 @@ def get_Miami_Hostname(host):
         "e45f0124e002": "ceNodeDev031",
     }
     return dict.get(host.replace(":", "").lower(), None)
+
+
+if __name__ == "__main__":
+    TIMEOUTMAX = 9
+    timeout = 0
+    time.sleep(30)  # wait for the commands driver to start
+    hostname = get_Miami_Hostname(get_mac("eth0"))
+    while (
+        hostname
+        != str(subprocess.check_output("hostname", shell=True).strip(b"\n"))[2:-1]
+    ):
+        time.sleep(10)
+        with open("/dev/piCOMM/hostname", "w") as f:
+            f.write(hostname)
+        timeout += 1
+        if timeout > TIMEOUTMAX:
+            break
