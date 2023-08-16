@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 import ssl
 import json
 import traceback
-from ivue import Intellivue
+from intellivue.ivue import Intellivue
 import subprocess
 import serial, os, sys
 
