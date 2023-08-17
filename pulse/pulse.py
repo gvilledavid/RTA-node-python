@@ -530,7 +530,7 @@ class pulse:
             verbose_pulse = from_dict
         brief_pulse = {"UID": self.UID}
         brief_pulse["StaticHostname"] = verbose_pulse["StaticHostname"]
-        brief_pulse["networking"] = verbose_pulse["Networking"]
+        brief_pulse["Networking"] = verbose_pulse["Networking"]
         brief_pulse["ConnectedLeafs"] = verbose_pulse["ConnectedLeafs"]
         brief_pulse["Battery"] = {
             "BatteryPercent": verbose_pulse["Battery"]["BatteryPercent"]
