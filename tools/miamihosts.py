@@ -105,8 +105,11 @@ def get_Miami_Hostname(host):
 if __name__ == "__main__":
     TIMEOUTMAX = 9
     timeout = 0
-    time.sleep(30)  # wait for the commands driver to start
+    # time.sleep(30)  # wait for the commands driver to start
+    while not os.path.exists("/dev/piCOMM/hostname"):
+        pass
     hostname = get_Miami_Hostname(get_mac("eth0"))
+    print(hostname)
     while (
         hostname
         != str(subprocess.check_output("hostname", shell=True).strip(b"\n"))[2:-1]
