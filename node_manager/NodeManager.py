@@ -105,29 +105,46 @@ class NodeManager:
         self.last_pulse = 0
         self.last_brief = 0
         while self.running:
-            iter_time = time.time()
-            if time.time() - self.last_pulse > self.pulse_freq:
+            iter_time = time.monotonic()
+            if time.monotonic() - self.last_pulse > self.pulse_freq:
                 if self.pulse.dataready:
                     # pulse.pulse, pulse.pulse_topic to make a Message
-                    msg = Message(payload=pulse.pulse, topic=pulse.pulse_topic)
                     for b in self.brokers:
-                        b.put(priority, msg)
-                    self.last_pulse = time.time()
+                        if self.pulse.isdatavalid():
+                            if b.name == "Azure":
+                                b.put(
+                                    priority,
+                                    Message(
+                                        topic=self.pulse.legacy_topic,
+                                        payload=self.pulse.legacy_pulse,
+                                    ),
+                                )
+                            else:
+                                b.put(
+                                    priority,
+                                    Message(
+                                        topic=self.pulse_topic, payload=self.pulse.pulse
+                                    ),
+                                )
+                    self.last_pulse = time.monotonic()
                 elif not self.pulse.updating:
                     self.pulse.update()
-            elif time.time() - self.last_brief > self.brief_freq:
+            elif time.monotonic() - self.last_brief > self.brief_freq:
                 if self.pulse.dataready:
-                    msg = Message(payload=pulse.brief, topic=pulse.pulse_topic)
-                    for b in self.brokers:
-                        b.put(priority, msg)
-                    self.last_brief = time.time()
+                    # pulse.pulse_brief, pulse.pulse_topic to make a Message
+                    self.last_brief = time.monotonic()
+                    if self.pulse.isdatavalid():
+                        b.put(
+                            priority,
+                            Message(topic=self.pulse_topic, payload=self.pulse.brief),
+                        )
                 elif not self.pulse.updating:
                     self.pulse.brief_update()
 
             for leaf in self.leafs:
                 if not self.leafs[leaf].is_alive():
                     pass
-                    # why did it die? how to restart
+                    # TODO: check why it died and restart
                 else:
                     while self.leafs[leaf].txQueue.qsize():
                         try:
@@ -145,6 +162,7 @@ class NodeManager:
                         print(f"Recieved {val[1].payload} from {b.name}")
                         # if command for leaf, add to self.leafs[tty].rxQueue()
             # check pulse, send if available
+        time.sleep(0.1)
 
 
 if __name__ == "__main__":
