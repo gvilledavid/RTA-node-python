@@ -347,8 +347,8 @@ class pulse:
             ttyStatus = subprocess.check_output("ls /dev/piUART/status", shell=True)
         except:
             ttyStatus = "b'\\n'"
-        if "ttyAMA4" in ttyAMA and "ttyAMA0" in ttyAMA:
-            ttyAMA.remove("ttyAMA0")
+        if b"ttyAMA4" in ttyAMA and b"ttyAMA0" in ttyAMA:
+            ttyAMA.remove(b"ttyAMA0")
         ttyAMA = str(ttyAMA)[2:-3].split("\\n")
         ttyUSB = str(ttyUSB)[2:-3].split("\\n")
         ttyStatus = str(ttyStatus)[2:-3].split("\\n")
