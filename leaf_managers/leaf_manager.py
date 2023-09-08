@@ -29,7 +29,7 @@ class UARTLeafManager:
         self.response_topic = f"Devices/responses/{self.UID}"
         self.pulse_topic = f"Pulse/leafs/{self.UID}"
         self.pulse_freq = 30
-        self._last_pulse_time = time.time()
+        self._last_pulse_time = time.monotonic()
         self.hardware_status_file = f"/dev/piUART/status/{self.interface}"
         self.qos = 1
         self.retain = False
@@ -50,9 +50,9 @@ class UARTLeafManager:
             case "ttyAMA1":
                 parser_name = "intellivue"
             case "ttyAMA2":
-                parser_name = "V60"
-            case "ttyAMA3":
                 parser_name = "PB840"
+            case "ttyAMA3":
+                parser_name = "V60"
             case "ttyAMA4":
                 parser_name = "PB840_waveforms"
         if parser_list.get(parser_name, None):
@@ -103,7 +103,7 @@ class UARTLeafManager:
                 self.find_parser()  # get the next parser in the list
             if self.has_valid_parser and not self.parser.is_running():
                 self.parser.loop_start()
-            if time.time() > (self._last_pulse_time + self.pulse_freq):
+            if time.monotonic() > (self._last_pulse_time + self.pulse_freq):
                 if not self.txQueue.full():
                     try:
                         # calls to full() do not guarantee space since the leaf may have written or acquired the lock
@@ -111,7 +111,7 @@ class UARTLeafManager:
                         # the leaf wrote the last slot, then put will block until there is space. If in addition to all this
                         # there is a network issue happening and the queue is not emptying, then the program will freeze here forever.
                         self.txQueue.put(self.pulsemsg(), timeout=1)
-                        self._last_pulse_time = time.time()
+                        self._last_pulse_time = time.monotonic()
                     except queue.Full:
                         self.logger.critical(
                             "The txQueue is full and a pulse message is lost."

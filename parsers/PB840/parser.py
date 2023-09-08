@@ -191,7 +191,7 @@ class parser(parsers.parser.parser):
                 f"{self.success_count}/{self.total_count} Send at`{msg['v']}` to topic `{self.legacy_topic}`"
             )
             self.packets_since_last_failure = 0
-            self._last_send = time.time()
+            self._last_send = time.monotonic()
         else:
             self.packets_since_last_failure += 1
             print(
@@ -206,7 +206,7 @@ class parser(parsers.parser.parser):
         self.success_count = 0
         self.total_count = 0
 
-        if self._last_send + self._send_freq > time.time():
+        if self._last_send + self._send_freq > time.monotonic():
             return
         # self.set_send_freq() from parent to update _send_freq time
         self.total_count += 1
