@@ -55,6 +55,9 @@ class NodeManager:
                 self.brokers.append(MQTT(b, self.subscription_topics))
 
         else:
+            self.logger.critical(
+                f"brokerName must be a single broker or an array, not {type(brokerName)}"
+            )
             raise (
                 f"brokerName must be a single broker or an array, not {type(brokerName)}"
             )

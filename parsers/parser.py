@@ -101,7 +101,7 @@ class parser:
         self._running = False
 
         # pulse info:
-        self.status = ""  # change to MONITORING, STANDBY, or others
+        self.status = "INITIALIZING"  # change to MONITORING, STANDBY, or others
         self.DID = ""
         self.vent_type = ""
         self.baud = 9600
@@ -272,9 +272,9 @@ class default_parser(parser):
             "rts_cts": 0,
         }
         self.vitals_priority = 6
-        self.vitals_topic = f"Device/vitals/{self.UID}"
+        self.vitals_topic = f"Devices/vitals/{self.UID}"
         self.settings_priority = 7
-        self.settings_topic = f"Device/settings/{self.UID}"
+        self.settings_topic = f"Devices/settings/{self.UID}"
         self.legacy_topic = f"Device/vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
         self.qos = 1
         self.send_legacy = True
