@@ -347,6 +347,8 @@ class pulse:
             ttyStatus = subprocess.check_output("ls /dev/piUART/status", shell=True)
         except:
             ttyStatus = "b'\\n'"
+        if "ttyAMA4" in ttyAMA and "ttyAMA0" in ttyAMA:
+            ttyAMA.remove("ttyAMA0")
         ttyAMA = str(ttyAMA)[2:-3].split("\\n")
         ttyUSB = str(ttyUSB)[2:-3].split("\\n")
         ttyStatus = str(ttyStatus)[2:-3].split("\\n")
@@ -364,7 +366,8 @@ class pulse:
                     )
                 except:
                     pass
-            uarts[uart] = status
+            if uart:
+                uarts[uart] = status
         # str temperature, str voltage, array throttled_alerts dict uarts
         return {
             "Temperature": temperature,
