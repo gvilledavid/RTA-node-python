@@ -28,11 +28,12 @@ class NodeManager:
         self.logger = RotatingLogger("NodeManager.log")
         self.leafs = {}
         for tty in self.detect_hardware():
-            self.leafs[tty] = UARTLeafManager(tty, self.UID)
-            self.leafs[tty].loop_start()
-
+            # self.leafs[tty] = UARTLeafManager(tty, self.UID)
+            # self.leafs[tty].loop_start()
+            pass
         # topic stuff
         self.qos = 1
+        self.priority = 5
         self.status_topic = f"Pulse/nodes/status/{self.UID}"
         self.command_topic = f"Devices/commands/{self.UID}"
         self.pulse_topic = f"Pulse/nodes/{self.UID}"
@@ -113,7 +114,7 @@ class NodeManager:
                         if self.pulse.isdatavalid():
                             if b.name == "Azure":
                                 b.put(
-                                    priority,
+                                    self.priority,
                                     Message(
                                         topic=self.pulse.legacy_topic,
                                         payload=self.pulse.legacy_pulse,
@@ -121,7 +122,7 @@ class NodeManager:
                                 )
                             else:
                                 b.put(
-                                    priority,
+                                    self.priority,
                                     Message(
                                         topic=self.pulse_topic, payload=self.pulse.pulse
                                     ),
@@ -135,7 +136,7 @@ class NodeManager:
                     self.last_brief = time.monotonic()
                     if self.pulse.isdatavalid():
                         b.put(
-                            priority,
+                            self.priority,
                             Message(topic=self.pulse_topic, payload=self.pulse.brief),
                         )
                 elif not self.pulse.updating:
@@ -152,7 +153,7 @@ class NodeManager:
                             # using msg.topic, decide if it is an action you can act on
                             print(msg)
                             for b in self.brokers:
-                                b.put(priority, msg)
+                                b.put(self.priority, msg)
                         except:
                             pass
             for b in self.brokers:
@@ -166,4 +167,4 @@ class NodeManager:
 
 
 if __name__ == "__main__":
-    NodeManager(["Azure", "AWS", "cebabletier"])
+    NodeManager(["Azure", "AWS"])
