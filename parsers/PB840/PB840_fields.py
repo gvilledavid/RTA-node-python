@@ -32,11 +32,7 @@ PB840_WEB_STRINGS = {
     85: "RSBI",
     86: "TiTtot",
     87: "PEEP",
-<<<<<<< Updated upstream
-    92: "Raw",
-=======
-    92: "Raw",  # Cstat
->>>>>>> Stashed changes
+    92: "Cstat",  # Raw?
     102: "NIF",
 }
 
