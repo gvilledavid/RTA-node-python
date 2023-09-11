@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "Killing old process..."
-kill $(cat /usr/src/RTA/node/node_pid.file)
+kill -TERM $(cat /usr/src/RTA/node/node_pid.file)
 sleep 3
 echo "Deleting old files."
 cd /usr/src/RTA/
@@ -15,6 +15,10 @@ chmod +777 /usr/src/RTA/node/pulse.sh
 chmod +777 /usr/src/RTA/node/node_start.sh
 chmod +777 /usr/src/RTA/node/gpiostat.sh
 echo "Starting NodeManager..."
-/bin/bash /usr/src/RTA/node/node_start.sh
+#/bin/bash /usr/src/RTA/node/node_start.sh
+sleep 3
+cd /usr/src/RTA/RTA-node-python/node_manager/
+nohup python3 NodeManager.py >/dev/null 2>&1 &
+echo $!>/usr/src/RTA/node/node_pid.file
 echo "Done"
 echo "PID of NodeManager: $(cat node_pid.file)"

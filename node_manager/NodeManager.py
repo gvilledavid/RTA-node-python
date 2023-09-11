@@ -28,8 +28,9 @@ class NodeManager:
         self.logger = RotatingLogger("NodeManager.log")
         self.leafs = {}
         for tty in self.detect_hardware():
-            #self.leafs[tty] = UARTLeafManager(tty, self.UID)
-            #self.leafs[tty].loop_start()
+            # self.leafs[tty] = UARTLeafManager(tty, self.UID)
+            # self.leafs[tty].loop_start()
+            pass
         # topic stuff
         self.qos = 1
         self.priority = 5
