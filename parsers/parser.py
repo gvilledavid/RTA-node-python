@@ -287,8 +287,8 @@ class default_parser(parser):
         self.last_packet = {}
 
     def poll(self):
-        if self._last_send + self._send_freq > time.time():
-            self._last_send = time.time()
+        if self._last_send + self._send_freq > time.monotonic():
+            self._last_send = time.monotonic()
             self.put(
                 5,
                 Message(

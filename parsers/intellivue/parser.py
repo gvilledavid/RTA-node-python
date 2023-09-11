@@ -20,12 +20,15 @@ sys.path.append(
 
 
 import parsers.parser
-from tools.MQTT import Message
+from tools.MQTT import Message, MQTT
 
 
 class parser(parsers.parser.parser):
     def __init__(self):  # , broker, port, cert_file, key_file, topic):
-        self.intellivue = Intellivue("ttyAMA3", 115200, get_mac("wlan0"))
+        # scan baud rate here
+        self.intellivue = Intellivue(
+            self.tty, self.serial_info["brate"], get_mac("wlan0")
+        )
         self.last_packet = {"last_time": time.time()}
         self.client = self.connect_mqtt(broker, port, cert_file, key_file)
         self.client.loop_start()

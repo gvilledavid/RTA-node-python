@@ -161,7 +161,6 @@ class NodeManager:
                     if val:
                         print(f"Recieved {val[1].payload} from {b.name}")
                         # if command for leaf, add to self.leafs[tty].rxQueue()
-            # check pulse, send if available
         time.sleep(0.1)
 
 
