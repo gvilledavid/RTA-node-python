@@ -15,6 +15,6 @@ chmod +777 /usr/src/RTA/node/pulse.sh
 chmod +777 /usr/src/RTA/node/node_start.sh
 chmod +777 /usr/src/RTA/node/gpiostat.sh
 echo "Starting NodeManager..."
-./node/node_start.sh
+/bin/bash /usr/src/RTA/node/node_start.sh
 echo "Done"
 echo "PID of NodeManager: $(cat node_pid.file)"
