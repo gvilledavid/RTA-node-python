@@ -1,5 +1,5 @@
 #!/bin/bash
-kill $(cat node_pid.file)
+kill $(cat /usr/src/RTA/node/node_pid.file)
 sleep 3
 cd /usr/src/RTA/
 rm -rf RTA-node-python
