@@ -6,7 +6,6 @@ import paho.mqtt.client as mqtt
 import ssl
 import json
 import traceback
-from intellivue.ivue import Intellivue
 import subprocess
 import serial, os, sys
 import queue
@@ -22,6 +21,7 @@ sys.path.append(
 
 import parsers.parser
 from tools.MQTT import Message, MQTT
+from parsers.intellivue.ivue import Intellivue
 
 
 class parser(parsers.parser.parser):
