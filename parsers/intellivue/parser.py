@@ -9,6 +9,7 @@ import traceback
 from intellivue.ivue import Intellivue
 import subprocess
 import serial, os, sys
+import queue
 
 # from parser folder
 sys.path.append(
@@ -152,18 +153,15 @@ class parser(parsers.parser.parser):
 
 
 if __name__ == "__main__":
-    broker = "babletierdemo-beta.eastus.azurecontainer.io"
-    port = 443
-    cert_file = "../secrets/cert.pem"
-    key_file = "../secrets/private.pem"
-    topic = "Devices/pys/12:45:a3:bf:ed:12:ttyAMA3"
-    server = MQTT(
-        broker,
-        port,
-        cert_file,
-        key_file,
-        "Device/Vitals/e45f01db9e8dLeafMain1/e45f01db9e8d",
-    )
+    q = queue.PriorityQueue(maxsize=3)
+    x = parsers.parser.import_parsers()
+    print(x)
+    p = x["intellivue"].parser(tty="ttyAMA1", parent="123", txQueue=q)
+    p.loop_start()
+    while True:
+        if q.not_empty:
+            print(f"Recieved {q.get()}")
+        time.sleep(0.5)
 
     # view longest delays between packets with
     # grep success mqtt_log.txt | cut -f1 -d' ' | sort | gnuplot -p -e "plot '<cat' title 'packet delay'"
