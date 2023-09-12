@@ -56,17 +56,19 @@ class UARTLeafManager:
                 parser_name = "PB840_waveforms"
             case _:
                 parser_name = ""
-
+        self.has_valid_parser = False
         if parser_list.get(parser_name, None):
-            self.parser = parser_list[parser_name].parser(
-                interface, parent=self.UID, txQueue=self.txQueue
-            )
-            self.has_valid_parser = True
-        else:
+            try:
+                self.parser = parser_list[parser_name].parser(
+                    interface, parent=self.UID, txQueue=self.txQueue
+                )
+                self.has_valid_parser = True
+            except:
+                pass
+        if not self.has_valid_parser:
             self.parser = default_parser(
                 interface, parent=self.UID, txQueue=self.txQueue
             )
-            self.has_valid_parser = False
         self.init_pulse()
 
     def scan_baud(self):
