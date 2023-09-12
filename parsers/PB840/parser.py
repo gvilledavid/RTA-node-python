@@ -18,7 +18,7 @@ from PB840.PB840_fields import PB840_BAUD_RATES
 
 
 import parsers.parser
-from tools.MQTT import Message
+from tools.MQTT import Message, MQTT
 
 
 # 'PB840.PB840': <module 'PB840.PB840' from 'C:\\Users\\Srazo\\Documents\\GitHub\\RTA-node-python\\parsers\\PB840\\PB840.py'>, 'parsers.PB840': <module 'parsers.PB840' from 'C:\\Users\\Srazo\\Documents\\GitHub\\RTA-node-python\\parsers\\PB840\\__init__.py'>, 'parsers.PB840.PB840': <module 'parsers.PB840.PB840' from 'C:\\Users\\Srazo\\Documents\\GitHub\\RTA-node-python\\parsers\\PB840\\PB840.py'>}

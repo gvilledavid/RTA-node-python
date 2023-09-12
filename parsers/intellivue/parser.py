@@ -24,34 +24,38 @@ from tools.MQTT import Message, MQTT
 
 
 class parser(parsers.parser.parser):
-    def __init__(self):  # , broker, port, cert_file, key_file, topic):
-        # scan baud rate here
+    def _init(self):
+        # scan baud rate here?
+        self.name = "Intellivue"
+        self.DID = ""
+        self.vent_type = "MP70"
+        self.baud = 115200
+        self.protocol = "MIB"
+        self.serial_info = {
+            "tty": self.interface,
+            "brate": self.baud,
+            "tout": 0.5,
+            "cmd": "",
+            "par": serial.PARITY_NONE,
+            "rts_cts": 0,
+        }
         self.intellivue = Intellivue(
-            self.tty, self.serial_info["brate"], get_mac("wlan0")
+            self.interface.split("/")[-1], self.serial_info["brate"], self.parent
         )
+
         self.last_packet = {"last_time": time.time()}
-        self.client = self.connect_mqtt(broker, port, cert_file, key_file)
-        self.client.loop_start()
-        self.publish(topic)
-        self.topic = topic
-
-    def connect_mqtt(self, broker, port, cert_file, key_file):
-        def on_connect(client, userdata, flags, rc):
-            if rc == 0:
-                print("Connected to MQTT Broker!")
-            else:
-                print("Failed to connect, return code %d\n", rc)
-
-        client = mqtt.Client()
-        context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=None)
-        context.load_cert_chain(certfile=cert_file, keyfile=key_file, password=None)
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        client.tls_set_context(context)
-
-        client.on_connect = on_connect
-        client.connect(broker, port)
-        return client
+        self.vitals_priority = 6
+        self.vitals_topic = f"Devices/vitals/{self.UID}"
+        self.settings_priority = 7
+        self.settings_topic = f"Devices/settings/{self.UID}"
+        self.legacy_topic = f"Device/Vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
+        self.qos = 1
+        self.send_legacy = True
+        # self.fields will  be parsers.parser.send_all
+        #    or parser.send_delta
+        #    or parser.send_named
+        self._last_send = time.monotonic()
+        # self.last_packet = {}
 
     def check_deltas(self, msg):
         lp = self.last_packet
@@ -67,14 +71,21 @@ class parser(parsers.parser.parser):
         self.last_packet["last_time"] = time.time()
         print("packet differences = ", diffs)
 
+    def poll(self):
+        self.publish()
+
     def send_message(self):
         packet, err = self.intellivue.poll()
         responses = []
         if not err:
             try:
-                responses.append(
-                    self.client.publish(
-                        self.intellivue.vitals_topic, json.dumps(packet)
+                self.queue.put(
+                    (
+                        5,
+                        Message(
+                            topic=self.intellivue.vitals_topic,
+                            payload=json.dumps(packet),
+                        ),
                     )
                 )
                 # need to publish pulse here as well
@@ -82,9 +93,14 @@ class parser(parsers.parser.parser):
                 traceback.print_exc()
                 responses.append["Couldnt publish vitals"]
             try:
-                r = self.client.publish(
-                    self.intellivue.legacy_vitals_topic,
-                    json.dumps(self.intellivue.legacy_vitals),
+                r = self.queue.put(
+                    (
+                        5,
+                        Message(
+                            topic=self.intellivue.legacy_vitals_topic,
+                            payload=json.dumps(self.intellivue.legacy_vitals),
+                        ),
+                    )
                 )
                 responses.append(r)
             except:
@@ -92,7 +108,7 @@ class parser(parsers.parser.parser):
                 responses.append["Couldnt publish legacy vitals"]
             try:
                 pulse_topic, pulse_message = self.intellivue.pulse()
-                responses.append(self.client.publish(pulse_topic, pulse_message))
+                self.queue.put((5, Message(topic=pulse_topic, payload=pulse_message)))
             except:
                 traceback.print_exc()
                 responses.append["Couldnt publish pulse"]
@@ -121,46 +137,17 @@ class parser(parsers.parser.parser):
         success_count = 0
         total_count = 0
 
-        while True:
-            time.sleep(0.1)  # Send a message every ~1s
-            total_count += 1
-            try:
+        total_count += 1
+        try:
+            if self._send_freq + self._last_send > time.monotonic():
                 msg, result = self.send_message()
                 self.check_deltas(msg)
                 success_count = self.report_status(
                     msg, result, success_count, total_count
                 )
-            except:
-                print("Unhandled exception in mqtt publish, line 79")
-
-
-def param_from_iface(iface_str, param):
-    index = iface_str.find(param + " ")
-    if index == -1:
-        return ""
-    start_index = index + len(param) + 1
-    index = iface_str[start_index:].find(" ")
-    if index != -1:
-        return iface_str[start_index : start_index + index]
-    else:
-        return iface_str[start_index:]
-
-
-def get_mac(interface_name):
-    stdoutval = str(subprocess.check_output("ip address show", shell=True))[2:-1]
-    list = []
-    link = 1
-    while len(stdoutval) > 3:
-        end_index = stdoutval.find(f"\\n{link+1}")
-        if end_index == -1:
-            end_index = len(stdoutval)
-        this_link = stdoutval[:end_index]
-        list.append(this_link)
-        stdoutval = stdoutval[end_index:].replace("\\n", "", 1)
-        link += 1
-    for link in list:
-        if link[2 : link[2:].find(":") + 2].strip() == interface_name:
-            return param_from_iface(link, "link/ether")
+                self._last_send = time.monotonic()
+        except:
+            print("Unhandled exception in mqtt publish, line 79")
 
 
 if __name__ == "__main__":

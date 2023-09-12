@@ -149,7 +149,7 @@ class NodeManager:
                     pass
                     # TODO: check why it died and restart
                 else:
-                    while self.leafs[leaf].txQueue.qsize():
+                    while self.leafs[leaf].txQueue.not_empty:
                         try:
                             priority, msg = self.leafs[leaf].txQueue.get()
                             # using msg.topic, decide if it is an action you can act on
