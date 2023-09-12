@@ -266,6 +266,7 @@ class Intellivue:
                 print(time.time() - self.last_packet, "since last success")
                 self.last_packet = time.time()
                 l, self.legacy_vitals = self.make_packet(res)
+                print(self.legacy_vitals)
                 if len(l) == 0:
                     # sometimes the parsed message is empty?
                     return self.poll()

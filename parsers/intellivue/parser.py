@@ -40,8 +40,10 @@ class parser(parsers.parser.parser):
             "par": serial.PARITY_NONE,
             "rts_cts": 0,
         }
+        tty = self.interface.split("/")[-1]
+        print(tty)
         self.intellivue = Intellivue(
-            self.interface.split("/")[-1], self.serial_info["brate"], self.parent
+            ttyDEV=tty, ttyBaud=self.serial_info["brate"], mac=self.parent
         )
         self.logger.debug("Starting Intellivue")
 
@@ -159,6 +161,7 @@ if __name__ == "__main__":
     print(x)
     p = x["intellivue"].parser(tty="ttyAMA1", parent="123", txQueue=q)
     p.loop_start()
+
     while True:
         if q.not_empty:
             print(f"Recieved {q.get()}")
