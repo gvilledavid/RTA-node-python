@@ -92,7 +92,7 @@ class parser:
             self.interface = f"/dev/{tty}"
         self.fields = []
         self._stopped = True
-
+        self.parent = parent
         self.baud_rates = []
         self.queue = txQueue
         self._poll_freq = 2  # how fast your poll loop runs
