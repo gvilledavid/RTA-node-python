@@ -42,6 +42,7 @@ class parser(parsers.parser.parser):
         self.intellivue = Intellivue(
             self.interface.split("/")[-1], self.serial_info["brate"], self.parent
         )
+        self.logger.debug("Starting Intellivue")
 
         self.last_packet = {"last_time": time.time()}
         self.vitals_priority = 6

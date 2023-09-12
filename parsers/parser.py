@@ -114,7 +114,7 @@ class parser:
             "par": serial.PARITY_NONE,
             "rts_cts": 0,
         }
-        self.UID = f"{parent}:{tty}"
+        self.UID = "parent"
         self._init()
 
     def _init(self):
