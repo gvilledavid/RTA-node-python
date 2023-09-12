@@ -85,7 +85,7 @@ class parser(parsers.parser.parser):
 
     def send_message(self):
         if 4 <= len(self.serial_info):
-            dg = self.get_uart_data(debug=True)
+            dg = self.get_uart_data(debug=False)
             msg, err = create_packet(dg, debug=True)
         else:
             msg, err = create_packet(datagrams[0], debug=True)

@@ -96,6 +96,7 @@ class UARTLeafManager:
 
     def loop_start(self):
         # need to add flags here
+        self.parser.loop_start()
         self.running = True
         self.stopped = False
         self.runner.start()

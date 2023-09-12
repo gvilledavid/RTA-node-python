@@ -104,7 +104,7 @@ class parser:
         self.status = "INITIALIZING"  # change to MONITORING, STANDBY, or others
         self.DID = ""
         self.vent_type = ""
-        self.baud = 9600
+        self.baud = 38400
         self.protocol = ""
         self.serial_info = {
             "tty": self.interface,
