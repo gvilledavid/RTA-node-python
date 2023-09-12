@@ -80,6 +80,7 @@ class parser(parsers.parser.parser):
         packet, err = self.intellivue.poll()
         responses = []
         if not err:
+            print(packet)
             try:
                 self.queue.put(
                     (
@@ -135,7 +136,7 @@ class parser(parsers.parser.parser):
             )
         return success_count
 
-    def publish(self, topic):
+    def publish(self):
         success_count = 0
         total_count = 0
 

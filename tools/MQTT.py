@@ -346,11 +346,7 @@ class MQTT:
 
     def publisher_stop(self, time_out=1):
         self.pub_running = False
-        st = time.time()
-        while self.publisher_running() or self.publisher.is_alive():
-            if time_out and st + time_out > time.time():
-                break
-            self.publisher.join(timeout=0.01)
+        self.publisher.join(timeout=time_out)
 
     def publisher_running(self):
         return not self.pub_stopped
