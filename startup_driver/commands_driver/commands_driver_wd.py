@@ -8,7 +8,7 @@ from watchdog.events import LoggingEventHandler, PatternMatchingEventHandler
 from logging.handlers import RotatingFileHandler
 import re
 
-LOGFILE = "/home/ceadmin/RTA/logs/commlog.txt"
+LOGFILE = "/var/log/RTA/logs/commlog.txt"
 STATUSDIR = "/dev/piCOMM/"
 global_logger = None
 cmd_template = {

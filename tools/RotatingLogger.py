@@ -8,7 +8,7 @@ from logging.handlers import RotatingFileHandler
 
 class RotatingLogger:
     def __init__(
-        self, logname, dir="/home/ceadmin/RTA/logs/", maxFileSize=65500, backupCount=5
+        self, logname, dir="/var/log/RTA/logs/", maxFileSize=65500, backupCount=5
     ):
         self.logfile = os.path.normpath(os.path.join(dir, logname))
         if not os.path.isdir(dir):

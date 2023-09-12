@@ -45,7 +45,6 @@ class UARTLeafManager:
         self.txQueue = queue.PriorityQueue(maxsize=1000)
         parser_list = import_parsers()
         # scan here instead of assigning like below
-        parser_name = ""
         match interface:
             case "ttyAMA1":
                 parser_name = "intellivue"
@@ -55,6 +54,9 @@ class UARTLeafManager:
                 parser_name = "V60"
             case "ttyAMA4":
                 parser_name = "PB840_waveforms"
+            case _:
+                parser_name = ""
+
         if parser_list.get(parser_name, None):
             self.parser = parser_list[parser_name].parser(
                 interface, parent=self.UID, txQueue=self.txQueue

@@ -9,7 +9,7 @@ from logging.handlers import RotatingFileHandler
 import RPi.GPIO as GPIO
 
 
-LOGFILE = "/home/ceadmin/RTA/logs/wdlog.txt"
+LOGFILE = "/var/log/RTA/logs/wdlog.txt"
 STATUSDIR = "/dev/piUART/"
 
 # UART02   tx rx cts rts

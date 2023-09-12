@@ -444,5 +444,6 @@ if __name__ == "__main__":
         for b in brokers:
             while b.qsize():
                 val = b.get()
+                # (priority, Message) tuple. check if Message is True before using
                 if val:
                     print(f"Recieved {val[1].payload} from {b.name}")

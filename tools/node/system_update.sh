@@ -5,6 +5,9 @@ sudo -E apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force
 sudo apt-get autoremove
 sudo apt-get autoclean
 if [ -f /var/run/reboot-required ]; then
-  #kill node manager processes?
+  #kill node manager
+  echo "Killing old process..."
+  kill -TERM $(cat /usr/src/RTA/node/node_pid.file)
+  sleep 3
   sudo shutdown -r 0
 fi
