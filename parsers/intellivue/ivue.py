@@ -1,11 +1,11 @@
 import time
 import logging
 
-from intellivue.IntellivueProtocol.RS232 import RS232
-from intellivue.IntellivueProtocol.IntellivueDecoder import IntellivueDecoder
-from intellivue.IntellivueProtocol.IntellivueDistiller import IntellivueDistiller
+from IntellivueProtocol.RS232 import RS232
+from IntellivueProtocol.IntellivueDecoder import IntellivueDecoder
+from IntellivueProtocol.IntellivueDistiller import IntellivueDistiller
 
-from intellivue.extract_response import process_data
+from extract_response import process_data
 
 
 class Intellivue:
