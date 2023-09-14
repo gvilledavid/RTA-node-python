@@ -147,8 +147,8 @@ class parser(parsers.parser.parser):
         total_count = 0
 
         total_count += 1
-        # print(self.intellivue.poll()[0])
-        # return
+        print(self.intellivue.poll()[0])
+        return
         try:
             if self._send_freq + self._last_send > time.monotonic():
                 msg, result = self.send_message()

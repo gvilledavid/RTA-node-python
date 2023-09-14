@@ -298,6 +298,6 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.CRITICAL)
 
     # s = Intellivue('ttyAMA3',115200,"12:45:a3:bf:ed:12")
-    s = Intellivue("COM3", 115200, "12:45:a3:bf:ed:12")
+    s = Intellivue("ttyAMA1", 115200, "12:45:a3:bf:ed:12")
     s.test_run()
     s.close()
