@@ -27,8 +27,7 @@ class Intellivue:
         self.vent_type = ""
         self.parentmac = mac
         self.legacy_vitals_topic = f"Device/Vitals/{mac.replace(':','').lower()}LeafMain1/{mac.replace(':','').lower()}"
-        self.vitals_topic = f"Devices/pys/{mac}:{ttyDEV}"
-
+        self.vitals_topic = f"Devices/phys/{mac}:{ttyDEV}"
         if ttyDEV[:3] == "COM":  # windows style
             self.ser = RS232(ttyDEV, ttyBaud)
         else:
@@ -251,13 +250,14 @@ class Intellivue:
             self.ser.send(self.MDSExtendedPollActionNumeric)
             logging.info("Sent MDSExtendedPollActionNumeric")
             res, message_type = self.receive()
-            print(f"{res=}\n{message_type=}")
+            print(f"\n\n\n{message_type=}\n{self.decoder.readData(res)=}")
             if message_type == "AssociationAbort":
                 self.connected = False
                 self.setup()
 
             if message_type in [
-                "LinkedMDSExtendedPollActionResult" | "MDSExtendedPollActionResult"
+                "LinkedMDSExtendedPollActionResult",
+                "MDSExtendedPollActionResult",
             ]:
                 # MDSExtendedPollActionResult is usually empty
                 # self.fields_counter(res)
@@ -269,14 +269,16 @@ class Intellivue:
                 if len(l) == 0:
                     # sometimes the parsed message is empty?
                     return self.poll()
+                l["Timestamp"] = str(int(time.time() * 1000))
+                l["UID"] = f"{self.parentmac}:{self.ttyDEV}"
                 return l, False
             return self.poll()
         except:
             return self.poll()
 
     def pulse(self):
-        message = f'\u007b"UID": "{self.parentmac}:{self.ttyDEV}", "DID": "{self.DID}", "vent-type": "{self.vent_type}", "baud": {self.ttyBAUD}, "protocol": "{self.protocol}", "parent-node": "{self.parentmac}", "device-status": "{self.status}", "timestamp": "{str(int(time.time()*1000))}"\u007d'
-        topic = f"Devices/pulse/{self.parentmac}:{self.ttyDEV}"
+        message = f'\u007b"UID": "{self.parentmac}:{self.ttyDEV}", "DID": "{self.DID}", "VentType": "{self.vent_type}", "Baud": {self.ttyBAUD}, "Protocol": "{self.protocol}", "ParentNode": "{self.parentmac}", "DeviceStatus": "{self.status}", "Timestamp": "{str(int(time.time()*1000))}"\u007d'
+        topic = f"Pulse/leafs/{self.parentmac}:{self.ttyDEV}"
         return topic, message
 
     def test_run(self):
@@ -296,7 +298,6 @@ class Intellivue:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.CRITICAL)
 
-    # s = Intellivue('ttyAMA3',115200,"12:45:a3:bf:ed:12")
     s = Intellivue("ttyAMA1", 115200, "12:45:a3:bf:ed:12")
     s.test_run()
     s.close()
