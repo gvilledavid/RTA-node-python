@@ -42,6 +42,8 @@ class parser(parsers.parser.parser):
         }
         tty = self.interface.split("/")[-1]
         print(tty)
+        self._poll_freq = 0.2
+        self._send_freq = 0.2
         self.intellivue = Intellivue(
             ttyDEV=tty, ttyBaud=self.serial_info["brate"], mac=self.parent
         )
@@ -58,6 +60,8 @@ class parser(parsers.parser.parser):
         # self.fields will  be parsers.parser.send_all
         #    or parser.send_delta
         #    or parser.send_named
+        self._poll_freq = 0.2
+        self._send_freq = 0.2
         self._last_send = time.monotonic()
         # self.last_packet = {}
 
@@ -143,8 +147,8 @@ class parser(parsers.parser.parser):
         total_count = 0
 
         total_count += 1
-        print(self.poll()[0])
-        return
+        # print(self.intellivue.poll()[0])
+        # return
         try:
             if self._send_freq + self._last_send > time.monotonic():
                 msg, result = self.send_message()
@@ -167,7 +171,7 @@ if __name__ == "__main__":
     while True:
         if q.not_empty:
             print(f"Recieved {q.get()}")
-        time.sleep(0.5)
+        time.sleep(0.1)
 
     # view longest delays between packets with
     # grep success mqtt_log.txt | cut -f1 -d' ' | sort | gnuplot -p -e "plot '<cat' title 'packet delay'"
