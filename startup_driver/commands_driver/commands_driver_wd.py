@@ -49,6 +49,13 @@ commands = {
         "response": 'echo "shutting down now"',
         "response-index": 0,
     },
+    "node_update": {
+        "default": "echo 0",
+        "change-to": "1",
+        "cmd": "/bin/bash /usr/src/RTA/node/node_updater.sh",
+        "response": "",
+        "response-index": -1,
+    },
 }
 
 
