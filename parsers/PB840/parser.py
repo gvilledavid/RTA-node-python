@@ -190,7 +190,7 @@ class parser(parsers.parser.parser):
             print(
                 f"{self.success_count}/{self.total_count} Send at`{msg['v']}` to topic `{self.legacy_topic}`"
             )
-            self.packets_since_last_failure = 0
+            packets_since_last_failure = 0
             self._last_send = time.monotonic()
         else:
             self.packets_since_last_failure += 1

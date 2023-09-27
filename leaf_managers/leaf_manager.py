@@ -38,33 +38,31 @@ class UARTLeafManager:
             self.logger = RotatingLogger(f"UARTLeafManager-{interface}.log")
         else:
             self.logger = logger
-        self.runner = threading.Thread(target=self.loop_runner, args=())
+
         self.running = False
         self.stopped = True
         self.rxQueue = queue.PriorityQueue(maxsize=1000)
         self.txQueue = queue.PriorityQueue(maxsize=1000)
         parser_list = import_parsers()
-        # scan here instead of assigning like below
-        match interface:
-            case "ttyAMA1":
-                parser_name = "intellivue"
-            case "ttyAMA2":
-                parser_name = "PB840"
-            case "ttyAMA3":
-                parser_name = "V60"
-            case "ttyAMA4":
-                parser_name = "PB840_waveforms"
-            case _:
-                parser_name = ""
         self.has_valid_parser = False
-        if parser_list.get(parser_name, None):
+        for parser_name in parser_list:
             try:
-                self.parser = parser_list[parser_name].parser(
-                    interface, parent=self.UID, txQueue=self.txQueue
+                test_parser = parser_list[parser_name].parser(
+                    tty=interface, parent=self.UID, txQueue=self.txQueue
+                )
+                # test_parser.loop_start()
+                err = test_parser.validate_parser()
+            except:
+                err = True
+
+            if not err:
+                del test_parser
+                self.parser == parser_list[parser_name].parser(
+                    tty=interface, parent=self.UID, txQueue=self.txQueue
                 )
                 self.has_valid_parser = True
-            except:
-                pass
+
+            # else continue to next parser
         if not self.has_valid_parser:
             self.parser = default_parser(
                 interface, parent=self.UID, txQueue=self.txQueue
@@ -99,6 +97,7 @@ class UARTLeafManager:
         self.parser.loop_start()
         self.running = True
         self.stopped = False
+        self.runner = threading.Thread(target=self.loop_runner, args=())
         self.runner.start()
 
     def loop_runner(self):
