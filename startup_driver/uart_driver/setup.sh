@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /usr/src/RTA/startup_driver/uart_driver/
+cd /usr/src/RTA/uart_driver/
 sudo apt install python3-pip -y
 sudo pip3 install RPI.GPIO
 sudo pip3 install watchdog

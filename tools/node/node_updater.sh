@@ -60,8 +60,7 @@ echo "Starting NodeManager..."
 #/bin/bash /usr/src/RTA/node/node_start.sh
 sleep 3
 cd /usr/src/RTA/RTA-node-python/node_manager/
-nohup python3 NodeManager.py >/dev/null 2>&1 &
-echo $!>/usr/src/RTA/node/node_pid.file
+sudo -H -u ubuntu bash -c /usr/src/RTA/node/node_start.sh
 
 #verify crontab
 cd /usr/src/RTA/node/
@@ -115,5 +114,5 @@ sudo rm ubuntu_crontab.txt
  
 echo "Done"
 echo "PID of NodeManager: $(cat /usr/src/RTA/node/node_pid.file)"
-echo "PID of Uart Driver: $(cat /usr/src/RTA/uart_manager/pid.file)"
+echo "PID of Uart Driver: $(cat /usr/src/RTA/uart_driver/pid.file)"
 echo "PID of Commands Driver: $(cat /usr/src/RTA/commands_driver/pid.file)"
