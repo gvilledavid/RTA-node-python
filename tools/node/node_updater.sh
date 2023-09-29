@@ -11,7 +11,7 @@ kill -TERM $(cat /usr/src/RTA/commands_driver/pid.file)
 echo "commands driver down"
 kill -TERM $(cat /usr/src/RTA/node/node_pid.file)
 echo "Node down"
-kill -TERM $(cat /usr/src/RTA/uart_manager/pid.file)
+kill -TERM $(cat /usr/src/RTA/uart_driver/pid.file)
 echo "uart manager down"
 
 sleep 3
