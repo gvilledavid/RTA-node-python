@@ -51,6 +51,10 @@ echo "Starting startup_drivers"
 sudo /usr/src/RTA/commands_driver/setup.sh
 sudo /usr/src/RTA/uart_driver/setup.sh
 
+echo "Changing ownership of directories"
+chown -R ubuntu:ubuntu /usr/src/RTA
+chown ubuntu:ubuntu /usr/src/RTA/*
+
 sleep 10
 echo "Starting NodeManager..."
 #/bin/bash /usr/src/RTA/node/node_start.sh
