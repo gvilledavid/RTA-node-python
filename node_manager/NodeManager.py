@@ -137,10 +137,13 @@ class NodeManager:
                     # pulse.pulse_brief, pulse.pulse_topic to make a Message
                     self.last_brief = time.monotonic()
                     if self.pulse.isdatavalid():
-                        b.put(
-                            self.priority,
-                            Message(topic=self.pulse_topic, payload=self.pulse.brief),
-                        )
+                        for b in self.brokers:
+                            b.put(
+                                self.priority,
+                                Message(
+                                    topic=self.pulse_topic, payload=self.pulse.brief
+                                ),
+                            )
                 elif not self.pulse.updating:
                     self.pulse.brief_update()
 
