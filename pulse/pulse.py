@@ -167,7 +167,7 @@ class pulse:
         # ret = os.system(f"hostnamectl set-hostname {name}")
         # return 1 if ret == 0 else 0
         try:
-            with open("\dev\piCOMM\hostname", "w") as f:
+            with open("/dev/piCOMM/hostname", "w") as f:
                 f.write(name)
         except:
             return False

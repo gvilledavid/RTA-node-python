@@ -9,6 +9,7 @@ import traceback
 import subprocess
 import serial, os, sys
 import queue
+import debugpy
 
 # from parser folder
 sys.path.append(
@@ -162,9 +163,15 @@ class parser(parsers.parser.parser):
 
 
 if __name__ == "__main__":
+    print("waiting for debugger to attach")
+    debugpy.listen(("10.1.1.169", 5678))
+
+    # Pause the program until a remote debugger is attached
+    debugpy.wait_for_client()
+    debugpy.breakpoint()
     q = queue.PriorityQueue(maxsize=3)
     x = parsers.parser.import_parsers()
-    print(x)
+    print(f"All parsers available: {x}")
     p = x["intellivue"].parser(tty="ttyAMA1", parent="123", txQueue=q)
     p.loop_start()
 
