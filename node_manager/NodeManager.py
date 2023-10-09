@@ -31,8 +31,8 @@ class NodeManager:
             try:
                 self.leafs[tty] = UARTLeafManager(tty, self.UID)
                 self.leafs[tty].loop_start()
-            except:
-                self.logger(f"Failed to start LeafManager for {tty}")
+            except Exception as e:
+                self.logger.critical(f"Failed to start LeafManager for {tty}:\n {e}")
         # topic stuff
         self.qos = 1
         self.priority = 5
@@ -171,4 +171,4 @@ class NodeManager:
 
 
 if __name__ == "__main__":
-    NodeManager(["Azure", "AWS"])
+    NodeManager(["AWS"])

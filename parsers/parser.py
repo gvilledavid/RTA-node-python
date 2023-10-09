@@ -292,7 +292,7 @@ class default_parser(parser):
             self.put(
                 5,
                 Message(
-                    payload=f'\{"UID":"{self.UID}","timestamp":"{str(int(time.time()*1000))}"\}',
+                    payload=f'\{"UID":"{self.UID}","Timestamp":"{str(int(time.time()*1000))}"\}',
                     topic=self.settings_topic,
                 ),
             )
