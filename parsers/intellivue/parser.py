@@ -164,11 +164,12 @@ class parser(parsers.parser.parser):
 
 if __name__ == "__main__":
     print("waiting for debugger to attach")
-    debugpy.listen(("10.1.1.169", 5678))
+    # debugpy.listen(5678)
 
     # Pause the program until a remote debugger is attached
     debugpy.wait_for_client()
     debugpy.breakpoint()
+    print("breakpoint here")
     q = queue.PriorityQueue(maxsize=3)
     x = parsers.parser.import_parsers()
     print(f"All parsers available: {x}")
