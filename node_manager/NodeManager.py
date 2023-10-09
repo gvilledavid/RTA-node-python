@@ -32,7 +32,7 @@ class NodeManager:
                 self.leafs[tty] = UARTLeafManager(tty, self.UID)
                 self.leafs[tty].loop_start()
             except Exception as e:
-                self.logger.critical(f"Failed to start LeafManager for {tty}:\n {e}")
+                self.logger.critical(f"Failed to start LeafManager for {tty}: ")
         # topic stuff
         self.qos = 1
         self.priority = 5

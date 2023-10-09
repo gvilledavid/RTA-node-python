@@ -46,7 +46,7 @@ class parser(parsers.parser.parser):
         self._poll_freq = 0.2
         self._send_freq = 0.2
         self.intellivue = Intellivue(
-            ttyDEV=tty, ttyBaud=self.serial_info["brate"], mac=self.parent
+            ttyDEV=tty, ttyBaud=self.serial_info["brate"], mac=self.parent,self.logger
         )
         self.logger.debug("Starting Intellivue")
 

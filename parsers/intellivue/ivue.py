@@ -9,7 +9,8 @@ from extract_response import process_data
 
 
 class Intellivue:
-    def __init__(self, ttyDEV, ttyBaud, mac):
+    def __init__(self, ttyDEV, ttyBaud, mac, logger):
+        self.logger = logger
         self.total = 0
         self.initiation_time = time.time()
         self.last_keep_alive = time.time()
@@ -38,7 +39,7 @@ class Intellivue:
         self.last_packet = time.time()
         self.decoder = IntellivueDecoder()
         self.distiller = IntellivueDistiller()
-        self.connected = True  # assume it's initially connected
+        self.connected = False
 
         self.KeepAliveMessage = self.decoder.writeData("MDSSinglePollAction")
         self.AssociationRequest = self.decoder.writeData("AssociationRequest")
@@ -62,7 +63,7 @@ class Intellivue:
         # Grabbed from PERSEUS PhilipsTelemetryStream.py
         self.AssociationResponse = self.decoder.readData(association_message)
 
-        # logging.debug("Association response: {0}".format(self.AssociationResponse))
+        self.logger.debug("Association response: {0}".format(self.AssociationResponse))
 
         self.KeepAliveTime = (
             self.AssociationResponse["AssocRespUserData"]["MDSEUserInfoStd"][
@@ -95,8 +96,8 @@ class Intellivue:
             "MDSCreateEventResult", self.MDSParameters
         )
         self.ser.send(self.MDSCreateEventResult)
-        logging.info("Sent MDS Create Event Result...")
-        logging.critical("Connected")
+        self.logger.info("Sent MDS Create Event Result...")
+        self.logger.critical("Connected")
         self.connected = True
 
     def fields_counter(self, res):
@@ -117,22 +118,33 @@ class Intellivue:
         l, legacy = process_data(R)
         # legacy = [i for i in legacy ]
         packet = {"l": legacy, "n": "v", "v": str(int(time.time() * 1000))}
-        logging.info(l)
+        self.logger.info(l)
         return l, packet
 
     def setup(self):
-        while not self.connected:
+        self.initial_connection_timout = 10
+        initial_connection_attempt = time.monotonic()
+        self.status = "DISCONNECTED"
+        while not self.connected and time.monotonic() < (
+            initial_connection_attempt + self.initial_connection_timout
+        ):
             self.attempt_connection()
-        # self.status="CONNECTED"
+            time.sleep(1)
+        print(
+            f"Detected:\n{self.manufacturer=}\n{self.DID=}\n{self.vent_type=}\n{self.bedlabel=}\n{self.mode=}\n{self.status=}"
+        )
+        if self.status != "DISCONNECTED":
+            return True
+        return False
 
     def attempt_connection(self):
         try:
             self.ser.send(self.AssociationRequest)
-            logging.info("Sent AssociationRequest")
+            self.logger.info("Sent AssociationRequest")
             time.sleep(self.attempt_delay)
             res, message_type = self.receive()
-            logging.info(message_type)
-            # logging.debug(res)
+            self.logger.info(message_type)
+            self.logger.debug(res)
             if message_type == "AssociationResponse":
                 event_message = self.ser.receive()
                 message_type = self.decoder.getMessageType(event_message)
@@ -154,6 +166,7 @@ class Intellivue:
                             ]
                         ]
                     )
+                    print(self.last)
                     self.DID = "".join(
                         [
                             str(f"{i:#04x}")[2:4]
@@ -182,41 +195,50 @@ class Intellivue:
                             ]
                         ]
                     )
-                    self.status = self.last[0]["MDSCreateInfo"]["MDSAttributeList"][
+                    self.bedlabel = self.last[0]["MDSCreateInfo"]["MDSAttributeList"][
+                        "AttributeList"
+                    ]["AVAType"]["NOM_ATTR_ID_BED_LABEL"]["AttributeValue"]["String"][
+                        "value"
+                    ]
+                    self.mode = self.last[0]["MDSCreateInfo"]["MDSAttributeList"][
                         "AttributeList"
                     ]["AVAType"]["NOM_ATTR_MODE_OP"]["AttributeValue"]["OperatingMode"]
+                    self.status = self.last[0]["MDSCreateInfo"]["MDSAttributeList"][
+                        "AttributeList"
+                    ]["AVAType"]["NOM_ATTR_VMS_MDS_STAT"]["AttributeValue"]["MDSStatus"]
                 except:
                     pass
-                logging.info(message_type)
-                # logging.debug(event_message)
+                self.logger.info(message_type)
+                self.logger.debug(event_message)
                 if message_type == "MDSCreateEvent":
-                    logging.info("trying to create MDS Event")
+                    self.logger.info("trying to create MDS Event")
                     self.createMDSCreateEvent(res, event_message)
         except:
-            logging.warning("Connection attempt failed")
+            self.logger.warning("Connection attempt failed")
             # need to wait here and try connecting again
             self.DID = ""
-            self.status = "DISCONNECT"
+            self.status = "DISCONNECTED"
 
     def close(self):
         try:
             self.ser.send(self.AssociationAbort)
-            logging.info("Sent Association Abort...")
+            self.logger.info("Sent Association Abort...")
             self.ser.send(self.ReleaseRequest)
-            logging.info("Sent Release Request...")
+            self.logger.info("Sent Release Request...")
         except:
-            logging.info("Connection wasn't open")
-            self.status = "DISCONNECT"
+            self.logger.info("Connection wasn't open")
+            self.status = "DISCONNECTED"
         while True:
             res, message_type = self.receive()
-            logging.info("Attempting to close")
+            self.logger.info("Attempting to close")
             if message_type == None:
                 self.connected = False
                 break
-        logging.critical(
+        self.logger.critical(
             f"Closing, total uptime was {time.time() - self.initiation_time:0.2f}"
         )
-        self.status = "DISCONNECT"
+        time.sleep(1)
+        self.status = "DISCONNECTED"
 
     def receive(self):
         start_time = time.time()
@@ -227,14 +249,16 @@ class Intellivue:
             try:
                 res = self.ser.receive()
                 elapsed = time.time() - start_time
-                logging.debug(f"{time.time() - self.initiation_time:0.2f}")
+                self.logger.debug(f"{time.time() - self.initiation_time:0.2f}")
                 if res != b"" or elapsed > self.wait:
                     break
             except:
-                logging.error("Exception while trying to receive")
+                self.logger.error("Exception while trying to receive")
                 break
         message_type = self.decoder.getMessageType(res)
-        logging.critical(f"{time.time() - self.initiation_time:0.2f} {message_type}")
+        self.logger.critical(
+            f"{time.time() - self.initiation_time:0.2f} {message_type}"
+        )
         # if message type is critical root error then reconnect
         # print(self.decoder.readData(res))
         return res, message_type
@@ -245,10 +269,10 @@ class Intellivue:
             if (time.time() - self.last_keep_alive) > (self.KeepAliveTime - 5):
                 self.ser.send(self.KeepAliveMessage)
                 self.last_keep_alive = time.time()
-                logging.info("Sent KeepAliveMessage")
+                self.logger.info("Sent KeepAliveMessage")
 
             self.ser.send(self.MDSExtendedPollActionNumeric)
-            logging.info("Sent MDSExtendedPollActionNumeric")
+            self.logger.info("Sent MDSExtendedPollActionNumeric")
             res, message_type = self.receive()
             print(f"\n\n\n{message_type=}\n{self.decoder.readData(res)=}")
             if message_type == "AssociationAbort":
@@ -298,6 +322,6 @@ class Intellivue:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.CRITICAL)
 
-    s = Intellivue("ttyAMA1", 115200, "12:45:a3:bf:ed:12")
+    s = Intellivue("ttyAMA1", 115200, "12:45:a3:bf:ed:12", logging)
     s.test_run()
     s.close()

@@ -195,7 +195,7 @@ class parser(parsers.parser.parser):
         else:
             self.packets_since_last_failure += 1
             print(
-                f"{self.total_count-self.success_count}/{self.total_count} Failed to send message to topic {topic}"
+                f"{self.total_count-self.success_count}/{self.total_count} Failed to send message to topic {self.legacy_topic}"
             )
             if self.packets_since_last_failure > 10:
                 self.scan_brate()
