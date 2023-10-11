@@ -187,9 +187,12 @@ class parser(parsers.parser.parser):
     def validate_hardware(self, starting_baud=115200):
         if self.intellivue.connected:
             return True
-        self.intellivue.close()
-        res = self.intellivue.setup()
-        self.intellivue.close()
+        elif self.intellivue.initial_connection_attempt + 60 < time.monotonic():
+            self.intellivue.close()
+            res = self.intellivue.setup()
+            self.intellivue.close()
+        else:
+            return False
         return res
 
 

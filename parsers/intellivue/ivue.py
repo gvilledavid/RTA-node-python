@@ -55,7 +55,7 @@ class Intellivue:
         self.ReleaseRequest = self.decoder.writeData("ReleaseRequest")
 
         self._error_count = 0
-        self._max_error_count = 10
+        self._max_error_count = 20
 
         dataCollectionTime = 72 * 60 * 60 * 2  # seconds
         dataCollection = {
@@ -141,19 +141,24 @@ class Intellivue:
         self.logger.info(l)
         return l, rorls_type
 
-    def setup(self):
+    def setup(self, reattempt=False, reattempt_res=None):
         self.idle = True
         self.initial_connection_timout = 10
-        initial_connection_attempt = time.monotonic()
+        self.initial_connection_attempt = time.monotonic()
         self.status = "DISCONNECTED"
         self.logger.info("Attempting connection")
         while not self.connected and time.monotonic() < (
-            initial_connection_attempt + self.initial_connection_timout
+            self.initial_connection_attempt + self.initial_connection_timout
         ):
-            self.ser.socket.flushInput()
-            self.ser.socket.flushOutput()
-            self.attempt_connection()
-            time.sleep(1)
+            if not reattempt:
+                self.ser.socket.flushInput()
+                self.ser.socket.flushOutput()
+                self.attempt_connection()
+                time.sleep(0.5)
+            else:
+                self.attempt_connection(
+                    reattempt=reattempt, reattempt_res=reattempt_res
+                )
         if self.status != "DISCONNECTED":
             self.logger.info(
                 f"Detected:\n{self.manufacturer=}\n{self.DID=}\n{self.vent_type=}\n{self.bedlabel=}\n{self.mode=}\n{self.status=}"
@@ -165,14 +170,21 @@ class Intellivue:
             return True
         return False
 
-    def attempt_connection(self):
+    def attempt_connection(
+        self,
+        reattempt=False,
+        reattempt_res=None,
+    ):
         try:
-            self.ser.send(self.AssociationRequest)
-            self.logger.info("Sent AssociationRequest")
-            time.sleep(self.attempt_delay)
-            res, message_type = self.receive()
-            self.logger.info(message_type)
-            self.logger.debug(res)
+            if not reattempt:
+                self.ser.send(self.AssociationRequest)
+                self.logger.info("Sent AssociationRequest")
+                time.sleep(self.attempt_delay)
+                res, message_type = self.receive()
+                self.logger.info(message_type)
+                # self.logger.debug(res)
+            else:
+                res = reattempt_res
             if message_type == "AssociationResponse":
                 event_message = self.ser.receive()
                 message_type = self.decoder.getMessageType(event_message)
@@ -326,8 +338,17 @@ class Intellivue:
                 return None, False
             # print(f"\n\n\n{message_type=}\n{self.decoder.readData(res)=}")
             match message_type:
-                case "AssociationAbort":
+                case None:
+                    # empty response or timeout
+                    pass
+                case "AssociationResponse":
                     self.connected = False
+                    self.setup(reattempt=True, reattempt_res=res)
+                case "MDSCreateEvent":
+                    self.logger.info(
+                        f"Association Request acknowledged with MDSCreatetevent"
+                    )
+                case "AssociationAbort":
                     self.setup()
                 case "LinkedMDSExtendedPollActionResult":
                     vit, rorls_type = self.make_packet(res)
@@ -370,6 +391,8 @@ class Intellivue:
                     self.debug_vitals = []
                     self.idle = True
                     pass
+                case "MDSSinglePollActionResult":
+                    self.logger.info("Keep alive acknowledged")
                 case _:
                     return None, True
         except Exception as e:
