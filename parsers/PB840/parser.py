@@ -1,6 +1,7 @@
 import os, sys, time
 import json
 import serial
+import queue
 
 # from parser folder
 sys.path.append(
@@ -215,3 +216,19 @@ class parser(parsers.parser.parser):
         self.success_count = self.report_status(
             msg, result, self.success_count, self.total_count
         )
+
+
+if __name__ == "__main__":
+    q = queue.PriorityQueue(maxsize=3)
+    x = parsers.parser.import_parsers()
+    print(f"All parsers available: {x}")
+    p = x["PB840"].parser(tty="ttyAMA2", parent="123", txQueue=q)
+    p.loop_start()
+    last_status = None
+    while True:
+        if q.not_empty:
+            print(f"\n\n\n\n\nRecieved {q.get()}\n\n\n\n\n")
+        time.sleep(0.1)
+        if last_status != p.intellivue.status:
+            print("\n\n\n\n\n" + p.intellivue.status + "\n\n\n\n\n")
+            last_status = p.intellivue.status

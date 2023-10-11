@@ -298,7 +298,7 @@ class default_parser(parser):
             )
 
     def validate_hardware(self):
-        return True
+        return False
 
     def validate_error_message(self, message):
         return True
@@ -311,7 +311,8 @@ if __name__ == "__main__":
     q = queue.PriorityQueue(maxsize=3)
     x = import_parsers()
     print(x)
-    p = x["PB840"].parser(tty="ttyAMA1", parent="123", txQueue=q)
+    p = x["PB840"].parser(tty="ttyAMA2", parent="123", txQueue=q)
+    p.validate_hardware()
     p.loop_start()
     while True:
         if q.not_empty:
