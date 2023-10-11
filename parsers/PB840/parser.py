@@ -30,7 +30,7 @@ class parser(parsers.parser.parser):
         # super calls _init at the end of its constructor, _init overwritable by child
         # dont overwrite __init__, or if you do, call super.__init__ as the first thing
         # in child constructor
-        self.name = "PB840"
+        self.name = "DCI"
         self.DID = ""
         self.vent_type = ""
         self.baud = 9600  # todo, load this from config file for last known good
@@ -69,7 +69,7 @@ class parser(parsers.parser.parser):
 
     def validate_hardware(self):
         # return true if real vent is detected
-        pass
+        self.
 
     def check_deltas(self, msg):
         lp = self.last_packet

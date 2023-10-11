@@ -88,12 +88,12 @@ class parser(parsers.parser.parser):
     def poll(self):
         if self.intellivue.connected:
             packet, err = self.intellivue.poll()
+            self.status = self.intellivue.mode
             if packet:
                 self.put(
                     self.vitals_priority,
                     Message(topic=self.vitals_topic, payload=packet),
                 )
-                self.status = self.intellivue.mode
                 self._last_send = time.monotonic()
             """if packet:
                 self._last_recieved_packet = packet

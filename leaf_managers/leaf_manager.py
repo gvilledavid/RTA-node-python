@@ -65,9 +65,9 @@ class UARTLeafManager:
                     self.baud = int(self.baud)
                 except:
                     pass
-        for parser_name in self.ordered_parser_list_keys:
+        for self.parser_name in self.ordered_parser_list_keys:
             try:
-                self.parser = self.parser_list[parser_name].parser(
+                self.parser = self.parser_list[self.parser_name].parser(
                     tty=interface, parent=self.parent, txQueue=self.txQueue
                 )
                 # test_parser.loop_start()
@@ -78,7 +78,7 @@ class UARTLeafManager:
             if valid:
                 self.has_valid_parser = True
                 with open(f"/usr/src/RTA/config/lastknown-{interface}.txt", "w") as f:
-                    f.write(f"{parser_name}:{self.parser.baud}")
+                    f.write(f"{self.parser_name}:{self.parser.baud}")
                 break
             else:
                 try:
@@ -147,8 +147,40 @@ class UARTLeafManager:
         self.stopped = True
 
     def find_parser(self):
-        # select the next parser
-        pass
+        if self.parser_name in self.ordered_parser_list_keys:
+            idx = self.ordered_parser_list_keys.index(self.parser_name) + 1
+            if idx >= len(self.ordered_parser_list_keys):
+                idx = 0
+        else:
+            idx = 0
+        self.parser_name = self.ordered_parser_list_keys[idx]
+        try:
+            del self.parser
+        except:
+            pass
+        try:
+            self.parser = self.parser_list[self.parser_name].parser(
+                tty=self.interface, parent=self.parent, txQueue=self.txQueue
+            )
+            valid = self.parser.validate_hardware()
+        except:
+            valid = False
+
+        if valid:
+            self.has_valid_parser = True
+            with open(f"/usr/src/RTA/config/lastknown-{self.interface}.txt", "w") as f:
+                f.write(f"{self.parser_name}:{self.parser.baud}")
+            return True
+        else:
+            try:
+                del self.parser
+            except:
+                pass
+        if not self.has_valid_parser:
+            self.parser = default_parser(
+                self.interface, parent=self.parent, txQueue=self.txQueue
+            )
+        return False
 
     def is_alive(self):
         self.runner.join(timeout=0)
