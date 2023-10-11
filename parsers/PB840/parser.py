@@ -43,6 +43,7 @@ class parser(parsers.parser.parser):
             "cmd": b"SNDF\r",
             "par": serial.PARITY_NONE,
             "rts_cts": 0,
+            "expected_bits": 2 * PB840_CHECKSUM[0] * 8,
         }
         self.vitals_priority = 6
         self.vitals_topic = f"Devices/vitals/{self.UID}"

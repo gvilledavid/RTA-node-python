@@ -113,6 +113,7 @@ class parser:
             "cmd": "",
             "par": serial.PARITY_NONE,
             "rts_cts": 0,
+            "expected_bits": 1225,
         }
         self.UID = f"{parent}:{tty}"
         self._init()
@@ -179,6 +180,7 @@ class parser:
     def scan_baud(self):
         for brate in self.baud_rates:
             self.serial_info["brate"] = brate
+            self.serial_info["tout"] = 0.5 + self.serial_info["expected_bits"] / brate
             dg, status = self.get_uart_data()
             if status:
                 _, valid = self.validate_packet(dg)
