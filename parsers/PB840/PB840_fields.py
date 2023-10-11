@@ -21,6 +21,7 @@ PB840_WEB_STRINGS = {
     31: "SetPSV",
     46: "SetP",
     47: "SetTi",
+    60: "PBW",
     94: "Pplat",
     70: "TotBrRate",
     71: "VTe",

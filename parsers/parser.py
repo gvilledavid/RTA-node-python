@@ -97,9 +97,9 @@ class parser:
         self.queue = txQueue
         self._poll_freq = 2  # how fast your poll loop runs
         self._send_freq = 2  # how fast the leaf will send info down the txqueue
-
+        self.serial_lock = threading.Lock()
         self._running = False
-
+        self.tty = tty
         # pulse info:
         self.status = "INITIALIZING"  # change to MONITORING, STANDBY, or others
         self.DID = ""
@@ -132,22 +132,46 @@ class parser:
     def __del__(self):
         self.loop_stop()
 
-    def get_uart_data(self, debug=False):
+    def get_uart_data(self, debug=False, cmd_overwrite=None):
+        """
+        Collect serial data. Locks so it is thread safe.
+
+        1) set self.serial_info{} before calling.
+            serial_info keys: ["tty"],["brate"],["tout"],["par"],["rts_cts"],["cmd"]
+        2) opt pass debug=True to get a valid MISCF packet back instead
+        3) opt pass "cmd_overwrite"= a bytes cr terminates command to ignoreserial_info["cmd"]
+            such as cmd_overwrite=bytes("RSET","ascii")+b'\r'
+
+        returns tuple : (datagram, status)
+            datagram: raw serial port data
+            status: 1 if carriage return found, 0 if timeout occured (datagram=b'')
+        """
         if debug:
             time.sleep(2 * random.random())
-            return b"MISCF,1225,169 ,\x0216:02 ,840 3510072467    ,APR 04 2023 ,INVASIVE ,A/C   ,VC    ,      ,V-Trig,9.0   ,1.520 ,120.0 ,21    ,      ,8.0   ,0.0   ,20    ,0.580 ,10.0  ,70.0  ,100   ,      ,      ,RAMP  ,VC    ,      ,      ,      ,SQUARE,OFF   ,51    ,      ,24.500,0.470 ,1900  ,OFF   ,1900  ,OFF   ,OFF   ,      ,10.3  ,8.8   ,      ,      ,      ,      ,         ,      ,      ,HME               ,      ,Disabled ,20    ,      ,      ,      ,43.0  ,      ,      ,      ,      ,      ,ADULT    ,      ,      ,30.0  ,9.0   ,1.312 ,11.800,30.0  ,11.0  ,7.80  ,1:7.80,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,7.9   ,      ,      ,0.0   ,0.0   ,0.0   ,0.0   ,0.0   ,      ,133.0 ,5.3   ,      ,85.0  ,0.0   ,      ,0.0   ,0.0   ,0.000 ,OFF   ,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,LOW   ,NORMAL,NORMAL,NORMAL,NORMAL,RESET ,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,      ,      ,OFF   ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,\x03\r"
-        with serial.Serial(
-            port=self.serial_info["tty"],
-            baudrate=self.serial_info["brate"],
-            timeout=self.serial_info["tout"],
-            parity=self.serial_info["par"],
-            rtscts=self.serial_info["rts_cts"],
-        ) as ser:
-            ser.flush()
-            ser.write(self.serial_info["cmd"])
-            line = ser.readline()
-            ser.close()
-            return line
+            return (
+                b"MISCF,1225,169 ,\x0216:02 ,840 3510072467    ,APR 04 2023 ,INVASIVE ,A/C   ,VC    ,      ,V-Trig,9.0   ,1.520 ,120.0 ,21    ,      ,8.0   ,0.0   ,20    ,0.580 ,10.0  ,70.0  ,100   ,      ,      ,RAMP  ,VC    ,      ,      ,      ,SQUARE,OFF   ,51    ,      ,24.500,0.470 ,1900  ,OFF   ,1900  ,OFF   ,OFF   ,      ,10.3  ,8.8   ,      ,      ,      ,      ,         ,      ,      ,HME               ,      ,Disabled ,20    ,      ,      ,      ,43.0  ,      ,      ,      ,      ,      ,ADULT    ,      ,      ,30.0  ,9.0   ,1.312 ,11.800,30.0  ,11.0  ,7.80  ,1:7.80,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,7.9   ,      ,      ,0.0   ,0.0   ,0.0   ,0.0   ,0.0   ,      ,133.0 ,5.3   ,      ,85.0  ,0.0   ,      ,0.0   ,0.0   ,0.000 ,OFF   ,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,LOW   ,NORMAL,NORMAL,NORMAL,NORMAL,RESET ,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,NORMAL,      ,      ,OFF   ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,      ,\x03\r",
+                1,
+            )
+        with self.serial_lock:
+            with serial.Serial(
+                port=self.serial_info["tty"],
+                baudrate=self.serial_info["brate"],
+                timeout=self.serial_info["tout"],
+                parity=self.serial_info["par"],
+                rtscts=self.serial_info["rts_cts"],
+            ) as ser:
+                ser.flush()
+                if cmd_overwrite:
+                    ser.write(cmd_overwrite)
+                else:
+                    ser.write(self.serial_info["cmd"])
+                line = ser.readline()
+                ser.close()
+                if b"\r" in line:
+                    status = 1
+                else:
+                    status = 0
+                return line, status
 
     def set_baud(self, brate):
         self.serial_info["brate"] = brate
@@ -155,11 +179,19 @@ class parser:
     def scan_baud(self):
         for brate in self.baud_rates:
             self.serial_info["brate"] = brate
-            dg = self.get_uart_data()
-            err = self.create_packet(dg, debug=True)[1]
-            if not err:
-                return
-        print("no valid baud rate found")
+            dg, status = self.get_uart_data()
+            if status:
+                _, valid = self.validate_packet(dg)
+                if valid:
+                    return True
+        self.logger.error("no valid baud rate found")
+        return False
+
+    def validate_packet(self, dg):
+        # parse a datagram enough to validate the connection was successful
+        raise NotImplemented(
+            "You must overwrite validate_packet method to return (data,true) if the packet is valid."
+        )
 
     def validate_hardware(self):
         raise NotImplemented(

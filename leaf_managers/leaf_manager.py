@@ -126,7 +126,7 @@ class UARTLeafManager:
     def loop_runner(self):
         # add flags, exception handling
         while self.running:
-            while not self.parser.validate_hardware():
+            if not self.parser.validate_hardware():
                 self.find_parser()  # get the next parser in the list
             if self.has_valid_parser and not self.parser.is_running():
                 self.parser.loop_start()

@@ -12,10 +12,10 @@ sys.path.append(
 )  # add RTA-node-python to path
 
 from PB840.PB840_datagram import datagrams
-from PB840.PB840_data_to_packet import create_packet
+from PB840 import PB840_data_to_packet
 
 # from PB840_serial import get_ventilator_data
-from PB840.PB840_fields import PB840_BAUD_RATES
+from PB840.PB840_fields import PB840_BAUD_RATES, PB840_CHECKSUM
 
 
 import parsers.parser
@@ -34,6 +34,7 @@ class parser(parsers.parser.parser):
         self.DID = ""
         self.vent_type = ""
         self.baud = 9600  # todo, load this from config file for last known good
+        self.baud_rates = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200]
         self.protocol = ""
         self.serial_info = {
             "tty": self.interface,
@@ -49,27 +50,75 @@ class parser(parsers.parser.parser):
         self.settings_topic = f"Devices/settings/{self.UID}"
         self.legacy_topic = f"Device/Vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
         self.qos = 1
-        self.send_legacy = True
+        self.send_legacy = False
         # self.fields will  be parsers.parser.send_all
         #    or parser.send_delta
         #    or parser.send_named
-        self._last_send = 0
+        self._last_send = time.monotonic()
         self.last_packet = {}
-        # self.publish()
+        self.success_count = 0
+        self.total_count = 0
+        self.was_connected = False
+        self._send_freq = 6
+        self._poll_freq = 2
+        self.packets_since_last_failure = 0
+        self._max_error_count = 5
 
     def poll(self):
-        self.publish()
+        if self.was_connected:
+            if self._last_send + self._send_freq > time.monotonic():
+                return
+            # self.set_send_freq() from parent to update _send_freq time
+            self.total_count += 1
+
+            msg, result = self.send_message()
+            self.success_count = self.report_status(
+                msg, result, self.success_count, self.total_count
+            )
+        else:
+            print("not connected, attempting...")
+            self.logger.info("not connected, attempting...")
+            self.validate_hardware()
 
     # scan_brate method needs to either be overwritten or validate_packet needs to be implemented
-    def validate_packet(dg):
-        pass
+    def validate_packet(self, dg):
+        try:
+            data = PB840_data_to_packet.get_data_as_fields(dg)
+            vent_type = int(data[4][1][0:3])
+            if vent_type in [840, 980]:
+                self.vent_type = data[4][1][0:3]
+                self.DID = data[4][1][4:]
+                self.was_connected = True
+                self.baud = self.serial_info["brate"]
+                self.status = "MONITORING"
+                return data, True
+        except Exception as e:
+            pass
+
+        self.was_connected = False
+        self.status = "NOT COMMUNICATING"
+        return {}, False
 
     def parse(self):
         pass
 
-    def validate_hardware(self):
+    def validate_hardware(self, starting_baud=None):
         # return true if real vent is detected
-        self.
+        # dg,err =self.get_uart_data()
+        if not starting_baud and self.was_connected:
+            return self.validate_hardware(self.baud)
+        if starting_baud:
+            if starting_baud in self.baud_rates:
+                idx = self.baud_rates.index(starting_baud)
+                if idx:
+                    self.baud_rates[0], self.baud_rates[idx] = (
+                        self.baud_rates[idx],
+                        self.baud_rates[0],
+                    )
+            else:
+                self.baud_rates.insert(0, starting_baud)
+
+        return self.scan_baud()
 
     def check_deltas(self, msg):
         lp = self.last_packet
@@ -86,13 +135,12 @@ class parser(parsers.parser.parser):
 
     def send_message(self):
         # respect self.mode setting when building packet
-        if 4 <= len(self.serial_info):
-            dg = self.get_uart_data(
-                debug=True
-            )  # get_ventilator_data(**self.serial_info)
-            msg, err = create_packet(dg, debug=True)
+        dg, status = self.get_uart_data(debug=False)
+        msg = ""
+        if status:
+            msg, err = PB840_data_to_packet.create_packet(dg, debug=False)
         else:
-            msg, err = create_packet(datagrams[0], debug=True)
+            err = True
         if not err:
             # todo: refactor this mess
             if not err:
@@ -113,6 +161,7 @@ class parser(parsers.parser.parser):
                     "SetPSV",
                     "SetP",
                     "SetTi",
+                    "PBW",
                 ]
                 vitals = [
                     "Pplat",
@@ -151,14 +200,15 @@ class parser(parsers.parser.parser):
                         ),
                     )
                 )
+
                 sets["UID"] = self.UID
-                sets["timestamp"] = str(int(time.time() * 1000))
+                sets["Timestamp"] = str(int(time.time() * 1000))
                 responses.append(
                     self.put(
                         self.settings_priority,
                         Message(
                             topic=self.settings_topic,
-                            payload=vit,
+                            payload=sets,
                             qos=self.qos,
                             retain=False,
                         ),
@@ -198,24 +248,12 @@ class parser(parsers.parser.parser):
             print(
                 f"{self.total_count-self.success_count}/{self.total_count} Failed to send message to topic {self.legacy_topic}"
             )
-            if self.packets_since_last_failure > 10:
-                self.scan_brate()
+            if self.packets_since_last_failure > self._max_error_count:
+                print("Failed too many times, scanning baud rate...")
+                self.logger.info("Failed too many times, scanning baud rate...")
+                self.validate_hardware()
                 self.packets_since_last_failure = 0
         return success_count
-
-    def publish(self):
-        self.success_count = 0
-        self.total_count = 0
-
-        if self._last_send + self._send_freq > time.monotonic():
-            return
-        # self.set_send_freq() from parent to update _send_freq time
-        self.total_count += 1
-
-        msg, result = self.send_message()
-        self.success_count = self.report_status(
-            msg, result, self.success_count, self.total_count
-        )
 
 
 if __name__ == "__main__":
@@ -223,12 +261,14 @@ if __name__ == "__main__":
     x = parsers.parser.import_parsers()
     print(f"All parsers available: {x}")
     p = x["PB840"].parser(tty="ttyAMA2", parent="123", txQueue=q)
+    if p.validate_hardware():
+        print("valid vent detected")
     p.loop_start()
     last_status = None
     while True:
         if q.not_empty:
             print(f"\n\n\n\n\nRecieved {q.get()}\n\n\n\n\n")
         time.sleep(0.1)
-        if last_status != p.intellivue.status:
-            print("\n\n\n\n\n" + p.intellivue.status + "\n\n\n\n\n")
-            last_status = p.intellivue.status
+        if last_status != p.status:
+            print("\n\n\n\n\n" + p.status + "\n\n\n\n\n")
+            last_status = p.status

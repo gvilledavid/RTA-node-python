@@ -1,6 +1,7 @@
 import time
 from PB840.PB840_fields import PB840_WEB_STRINGS, PB840_CHECKSUM, MODEMAP, REMOVE_FIELDS
-from PB840.PB840_datagram import datagrams
+
+# from PB840.PB840_datagram import datagrams
 
 
 def get_data_as_fields(data):
@@ -15,7 +16,12 @@ def get_data_as_fields(data):
     print(f"checksums = {n_chars}, {n_fields}")
     # TODO: verify miscf is miscf, verify checksums
     print(len(fields_b), len(fields))
-    if len(fields_b) != PB840_CHECKSUM[0] or len(fields) != PB840_CHECKSUM[1]:
+    if (
+        len(fields_b) != PB840_CHECKSUM[0]
+        or len(fields) != PB840_CHECKSUM[1]
+        or int(n_chars.strip()) != PB840_CHECKSUM[0]
+        or int(n_fields.strip()) != PB840_CHECKSUM[1]
+    ):
         # create_packet(0, False)
         raise Exception
     raw = [
