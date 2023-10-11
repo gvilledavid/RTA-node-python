@@ -1,7 +1,7 @@
 #!/bin/bash
-stty sane  115200 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA1
-stty sane  115200 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA2
-stty sane  115200 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA3
+stty sane  19200 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA1
+stty sane  19200 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA2
+stty sane  19200 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA0
 stty sane  115200 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyAMA4
 stty sane  115200 cs8 -parenb -ixon -crtscts -echo -F /dev/ttyUSB0
 while true

@@ -77,6 +77,8 @@ class Message(MQTTMessage):
             self.mid = kwargs.get("mid", 0)
             self._topic = kwargs.get("topic", b"")
             self.payload = kwargs.get("payload", b"")
+            if isinstance(self.payload, dict):
+                self.payload = json.dumps(self.payload)
             self.qos = kwargs.get("qos", 0)
             self.retain = kwargs.get("retain", False)
 

@@ -1,4 +1,5 @@
 from response import example_response
+import logging
 
 desired_fields = {
     "NOM_ECG_CARD_BEAT_RATE": "HR",  # "4182", #pg116 HR
@@ -40,7 +41,7 @@ example_parsed = {
 }
 
 
-def getdata_old(d, acc):
+def getdata_old(d, acc, logger):
     # the datastructure is a nested dictionary
     # to extract the information we need to
     # recursively get the SCADAType fields
@@ -51,29 +52,29 @@ def getdata_old(d, acc):
             acc += [d]
         else:
             for k in d:
-                getdata_old(d[k], acc)
+                getdata_old(d[k], acc, logger)
 
 
-def getdata(d, acc):
+def getdata(d, acc, logger):
     # print(d)
     RemoteOperationType = d.get("ROapdus", {"ro_type": "NONE"})["ro_type"]
     if (
         RemoteOperationType == "ROLRS_APDU"
     ):  # first and second, with seconds using RorlsId state of RORLS_LAST
-        print("Recieved ROLRS")
+        logger.info("Recieved ROLRS")
         RemoteOperationLinkedResult = d.get(
             "ROLRSapdu", {"RolrsId": {"state": "NONE", "Rolrs_count": 0}}
         )
         # get state, get count, compile data
     elif RemoteOperationType == "RORS_APDU":  # last, remote op result message
-        print("recieved RORS")
+        logger.info("recieved RORS")
         # compile all the previous ROLRS data packets and send an MQTT packet here
         return  # RORS has no data
     elif RemoteOperationType == "NONE":
-        print("Something other than RORS or ROLRS sent.")
+        logger.info("Something other than RORS or ROLRS sent.")
         return
     else:
-        print(f"Recieved ROapdus ro_type of {RemoteOperationType}")
+        logger.info(f"Recieved ROapdus ro_type of {RemoteOperationType}")
         return
     # print(f"{RemoteOperationLinkedResult=}")
     # print("state=",RemoteOperationLinkedResult["RolrsId"]["state"])
@@ -130,10 +131,10 @@ def getdata(d, acc):
                         print("name=", val["NuObsValue"]["SCADAType"])
                         print("data=", val["NuObsValue"]["FLOATType"])
                         rolslist += [val["NuObsValue"]]
-    print(f"{rolslist=}")
+    # print(f"{rolslist=}")
     # getdata_old(d,acc)#why does this crash on ETco2?
     acc += rolslist
-    print(f"{acc=}")
+    # print(f"{acc=}")
 
 
 def make_nv(data):
@@ -144,9 +145,9 @@ def make_nv(data):
     return {"n": n, "v": v}
 
 
-def process_data(d):
+def process_data(d, logger):
     acc = []
-    getdata(d, acc)
+    getdata(d, acc, logger)
     legacy = [make_nv(i) for i in acc]
     legacy = [i for i in legacy]  # if i["n"] in desired_fields.values()]
     l = dict([i["n"], i["v"]] for i in legacy)
@@ -154,4 +155,5 @@ def process_data(d):
 
 
 if __name__ == "__main__":
-    print(process_data(example_response))
+    logging.basicConfig(level=logging.CRITICAL)
+    print(process_data(example_response), logging)

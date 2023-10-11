@@ -22,7 +22,7 @@ class UARTLeafManager:
 
     def __init__(self, interface, parentUID, logger=None):
         self.interface = interface
-        self.baud = 0
+        self.baud = 9600
         self.parent = parentUID
         self.UID = f"{parentUID}:{interface}"
         self.command_topic = f"Commands/{self.UID}"
@@ -43,25 +43,48 @@ class UARTLeafManager:
         self.stopped = True
         self.rxQueue = queue.PriorityQueue(maxsize=1000)
         self.txQueue = queue.PriorityQueue(maxsize=1000)
-        parser_list = import_parsers()
+        self.parser_list = import_parsers()
         self.has_valid_parser = False
-        for parser_name in parser_list:
+        self.ordered_parser_list_keys = list(self.parser_list.keys())
+        if os.path.exists(f"/usr/src/RTA/config/lastknown-{interface}.txt"):
+            with open(f"/usr/src/RTA/config/lastknown-{interface}.txt", "r") as f:
+                config = f.readline()
+                if not config:
+                    pass
+                try:
+                    parser_name, self.baud = config.split(":")
+                    if parser_name in self.ordered_parser_list_keys:
+                        idx = self.ordered_parser_list_keys.index(parser_name)
+                        (
+                            self.ordered_parser_list_keys[idx],
+                            self.ordered_parser_list_keys[0],
+                        ) = (
+                            self.ordered_parser_list_keys[0],
+                            self.ordered_parser_list_keys[idx],
+                        )
+                    self.baud = int(self.baud)
+                except:
+                    pass
+        for parser_name in self.ordered_parser_list_keys:
             try:
-                test_parser = parser_list[parser_name].parser(
-                    tty=interface, parent=self.UID, txQueue=self.txQueue
+                self.parser = self.parser_list[parser_name].parser(
+                    tty=interface, parent=self.parent, txQueue=self.txQueue
                 )
                 # test_parser.loop_start()
-                err = test_parser.validate_parser()
+                valid = self.parser.validate_hardware(starting_baud=self.baud)
             except:
-                err = True
+                valid = False
 
-            if not err:
-                del test_parser
-                self.parser == parser_list[parser_name].parser(
-                    tty=interface, parent=self.UID, txQueue=self.txQueue
-                )
+            if valid:
                 self.has_valid_parser = True
-
+                with open(f"/usr/src/RTA/config/lastknown-{interface}.txt", "w") as f:
+                    f.write(f"{parser_name}:{self.parser.baud}")
+                break
+            else:
+                try:
+                    del self.parser
+                except:
+                    pass
             # else continue to next parser
         if not self.has_valid_parser:
             self.parser = default_parser(
@@ -135,16 +158,27 @@ class UARTLeafManager:
     def init_pulse(self):
         self._pulse = {}
         self._pulse["UID"] = self.UID
-        self._pulse["parent-node"] = self.parent
+        self._pulse["ParentNode"] = self.parent
         self.pulse()
 
     def pulse(self):
         self._pulse["DID"] = self.parser.DID
-        self._pulse["vent-type"] = self.parser.vent_type
-        self._pulse["baud"] = self.parser.baud  # last known good baud
-        self._pulse["protocol"] = self.parser.protocol
-        self._pulse["device-status"] = self.device_status()
-        self._pulse["timestamp"] = str(int(time.time() * 1000))
+        self._pulse["VentType"] = self.parser.vent_type
+        self._pulse["Baud"] = self.parser.baud  # last known good baud
+        self._pulse["Protocol"] = self.parser.protocol
+        self._pulse["DeviceStatus"] = self.device_status()
+        self._pulse["Timestamp"] = str(int(time.time() * 1000))
+        if self.parser.name == "Intellivue":
+            try:
+                self._pulse["BedName"] = self.parser.intellivue.bedlabel
+                self._pulse["MDSstatus"] = self.parser.intellivue.status
+                self._pulse["MDSmode"] = self.parser.intellivue.mode
+            except:
+                pass
+        else:
+            self._pulse.pop("BedName", None)
+            self._pulse.pop("MDSstatus", None)
+            self._pulse.pop("MDSmode", None)
 
     def pulsemsg(self):
         self.pulse()
@@ -195,9 +229,27 @@ class UARTLeafManager:
 
 
 if __name__ == "__main__":
-    leaf = UARTLeafManager("ttyAMA2", "123")
+    leaf = UARTLeafManager("ttyAMA1", "123")
     leaf.loop_start()
+    puls, vits = [time.time() * 1000, 0, 0], [time.time() * 1000, 0, 0]  # last,ct,avg
     while True:
         if leaf.txQueue.not_empty:
-            print(f"Recieved {leaf.txQueue.get()}")
+            m = leaf.txQueue.get()[1]
+            print(f"Recieved {m}")
+            if m.topic[0] == "P":
+                last = puls[0]
+                puls[0] = int(m.dict()["Timestamp"])
+                puls[1] = puls[1] + 1
+                puls[2] = (puls[2] * (puls[1] - 1) + (puls[0] - last)) / puls[1]
+                print(
+                    f"**********Pulse : delta {(puls[0]-last)/1000}, avg {puls[2]/1000}"
+                )
+            if m.topic[0] == "D":
+                last = vits[0]
+                vits[0] = int(m.dict()["Timestamp"])
+                vits[1] = vits[1] + 1
+                vits[2] = (vits[2] * (vits[1] - 1) + (vits[0] - last)) / vits[1]
+                print(
+                    f"**********Vitals: delta {(vits[0]-last)/1000}, avg {vits[2]/1000}"
+                )
         time.sleep(0.5)

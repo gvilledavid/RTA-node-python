@@ -12,42 +12,56 @@ class Intellivue:
     def __init__(self, ttyDEV, ttyBaud, mac, logger):
         self.logger = logger
         self.total = 0
-        self.initiation_time = time.time()
-        self.last_keep_alive = time.time()
-        self.KeepAliveTime = 5
+        self.initiation_time = time.monotonic()
+        self.last_keep_alive = time.monotonic()
+        self.KeepAliveTime = 8
         self.successes = 0
-        self.attempt_delay = 0.001
-        self.wait = 0.2
+        self.attempt_delay = 0.5
+        self.wait = 0.75
+        self.send_freq = 10
         self.nonecount = 0
         # pulse info
         self.ttyDEV = ttyDEV
         self.ttyBAUD = ttyBaud
-        self.status = "IDLE"
+        self.bedlabel = "Intellivue"
+        self.mode = "IDLE"
+        self.status = "DISCONNECTED"
         self.DID = ""
         self.protocol = "MIB"
         self.vent_type = ""
+        self.manufacturer = ""
+        self.UID = f"{mac}:{ttyDEV}"
         self.parentmac = mac
         self.legacy_vitals_topic = f"Device/Vitals/{mac.replace(':','').lower()}LeafMain1/{mac.replace(':','').lower()}"
-        self.vitals_topic = f"Devices/phys/{mac}:{ttyDEV}"
+        self.vitals_topic = f"Devices/phys/{self.UID}"
         if ttyDEV[:3] == "COM":  # windows style
             self.ser = RS232(ttyDEV, ttyBaud)
         else:
             self.ser = RS232(f"/dev/{ttyDEV}", ttyBaud)
-        self.ser.socket.timeout = 0.001
-        self.ser.socket.writeTimeout = 0.001
+        self.ser.socket.timeout = 0.1
+        self.ser.socket.write_timeout = 0.1
+        # self.ser.socket.writeTimeout = 0.1
+
         self.fields = {}
-        self.last_packet = time.time()
+        self.last_packet = time.monotonic() - 10
         self.decoder = IntellivueDecoder()
         self.distiller = IntellivueDistiller()
         self.connected = False
+        # Association=['option_list'] ['supported_aprofiles']['AttributeList'] ['AVAType']['NOM_POLL_PROFILE_SUPPORT'] ['AttributeValue' ]['PollProfileSupport']['PollProfileSupport_optional_packages'] ['AttributeList']['AVAType'] ['NOM_ATTR_POLL_PROFILE_EXT']['AttributeValue'] ['PollProfileExt']['PollProfileExtOptions']='POLL1SECANDWAVEANDLISTANDDYN',
 
         self.KeepAliveMessage = self.decoder.writeData("MDSSinglePollAction")
         self.AssociationRequest = self.decoder.writeData("AssociationRequest")
         self.AssociationAbort = self.decoder.writeData("AssociationAbort")
         self.ReleaseRequest = self.decoder.writeData("ReleaseRequest")
 
-        dataCollectionTime = 72 * 60 * 60  # seconds
-        dataCollection = {"RelativeTime": dataCollectionTime * 8000}
+        self._error_count = 0
+        self._max_error_count = 10
+
+        dataCollectionTime = 72 * 60 * 60 * 2  # seconds
+        dataCollection = {
+            "RelativeTime": 1  # dataCollectionTime * 8000,
+            # "PollProfileExtOptions": "POLL_EXT_PERIOD_NU_AVG_12SEC",
+        }
         self.MDSExtendedPollActionNumeric = self.decoder.writeData(
             "MDSExtendedPollActionNUMERIC", dataCollection
         )
@@ -102,11 +116,11 @@ class Intellivue:
 
     def fields_counter(self, res):
         R = self.decoder.readData(res)
-        l, legacy = process_data(R)
+        l, legacy = process_data(R, self.logger)
         for i in legacy:
             self.fields[i["n"]] = self.fields.get(i["n"], 0) + 1
         print(
-            f"{time.time() - self.initiation_time:0.2f}",
+            f"{time.monotonic() - self.initiation_time:0.2f}",
             self.successes,
             self.total,
             ",".join([str(self.fields[k]) for k in self.fields]),
@@ -114,26 +128,40 @@ class Intellivue:
 
     def make_packet(self, res):
         R = self.decoder.readData(res)
-        # print(R)
-        l, legacy = process_data(R)
+        try:
+            rorls_type = R["ROLRSapdu"]["RolrsId"]["state"]
+            #'RORLS_FIRST'
+            #'RORLS_NOT_FIRST_NOT_LAST'
+            #'RORLS_LAST
+        except:
+            rorls_type = None
+        l, legacy = process_data(R, self.logger)
         # legacy = [i for i in legacy ]
-        packet = {"l": legacy, "n": "v", "v": str(int(time.time() * 1000))}
+        # packet = {"l": legacy, "n": "v", "v": str(int(time.time() * 1000))}
         self.logger.info(l)
-        return l, packet
+        return l, rorls_type
 
     def setup(self):
+        self.idle = True
         self.initial_connection_timout = 10
         initial_connection_attempt = time.monotonic()
         self.status = "DISCONNECTED"
+        self.logger.info("Attempting connection")
         while not self.connected and time.monotonic() < (
             initial_connection_attempt + self.initial_connection_timout
         ):
+            self.ser.socket.flushInput()
+            self.ser.socket.flushOutput()
             self.attempt_connection()
             time.sleep(1)
-        print(
-            f"Detected:\n{self.manufacturer=}\n{self.DID=}\n{self.vent_type=}\n{self.bedlabel=}\n{self.mode=}\n{self.status=}"
-        )
         if self.status != "DISCONNECTED":
+            self.logger.info(
+                f"Detected:\n{self.manufacturer=}\n{self.DID=}\n{self.vent_type=}\n{self.bedlabel=}\n{self.mode=}\n{self.status=}"
+            )
+            self._error_count = 0
+            time.sleep(1)
+            self.idle = True
+            self.logger.info("MDSExtendedPollActionNumeric")
             return True
         return False
 
@@ -166,7 +194,7 @@ class Intellivue:
                             ]
                         ]
                     )
-                    print(self.last)
+                    # print(self.last)
                     self.DID = "".join(
                         [
                             str(f"{i:#04x}")[2:4]
@@ -199,13 +227,17 @@ class Intellivue:
                         "AttributeList"
                     ]["AVAType"]["NOM_ATTR_ID_BED_LABEL"]["AttributeValue"]["String"][
                         "value"
-                    ]
+                    ].rstrip(
+                        "\x00"
+                    )
                     self.mode = self.last[0]["MDSCreateInfo"]["MDSAttributeList"][
                         "AttributeList"
                     ]["AVAType"]["NOM_ATTR_MODE_OP"]["AttributeValue"]["OperatingMode"]
                     self.status = self.last[0]["MDSCreateInfo"]["MDSAttributeList"][
                         "AttributeList"
                     ]["AVAType"]["NOM_ATTR_VMS_MDS_STAT"]["AttributeValue"]["MDSStatus"]
+                    if self.vent_type == "e10000020001":
+                        self.vent_type = "Intellivue"
                 except:
                     pass
                 self.logger.info(message_type)
@@ -230,34 +262,43 @@ class Intellivue:
             self.status = "DISCONNECTED"
         while True:
             res, message_type = self.receive()
-            self.logger.info("Attempting to close")
+            # self.logger.info("Attempting to close")
             if message_type == None:
                 self.connected = False
                 break
         self.logger.critical(
-            f"Closing, total uptime was {time.time() - self.initiation_time:0.2f}"
+            f"Closing, total uptime was {time.monotonic() - self.initiation_time:0.2f}"
         )
         time.sleep(1)
+        self.ser.socket.flushInput()
+        self.ser.socket.flushOutput()
         self.status = "DISCONNECTED"
 
     def receive(self):
-        start_time = time.time()
+        start_time = time.monotonic()
         res = ""
         message_type = ""
+        self.logger.debug(
+            f"{time.monotonic() - self.initiation_time:0.2f} Try to receive"
+        )
         while True:
-            time.sleep(self.attempt_delay)
+            time.sleep(self.attempt_delay / 2)
             try:
                 res = self.ser.receive()
-                elapsed = time.time() - start_time
-                self.logger.debug(f"{time.time() - self.initiation_time:0.2f}")
+                elapsed = time.monotonic() - start_time
                 if res != b"" or elapsed > self.wait:
+                    self.logger.debug(
+                        f"{time.monotonic() - self.initiation_time:0.2f} timeout"
+                    )
                     break
             except:
                 self.logger.error("Exception while trying to receive")
                 break
         message_type = self.decoder.getMessageType(res)
+        if message_type == "TimeoutError" or not res:
+            self._error_count = self._error_count + 1
         self.logger.critical(
-            f"{time.time() - self.initiation_time:0.2f} {message_type}"
+            f"{time.monotonic() - self.initiation_time:0.2f} {message_type}"
         )
         # if message type is critical root error then reconnect
         # print(self.decoder.readData(res))
@@ -266,61 +307,103 @@ class Intellivue:
     def poll(self):
         try:
             self.total += 1
-            if (time.time() - self.last_keep_alive) > (self.KeepAliveTime - 5):
+            if (time.monotonic() - self.last_keep_alive) > (self.KeepAliveTime - 5):
                 self.ser.send(self.KeepAliveMessage)
-                self.last_keep_alive = time.time()
+                self.last_keep_alive = time.monotonic()
                 self.logger.info("Sent KeepAliveMessage")
-
-            self.ser.send(self.MDSExtendedPollActionNumeric)
-            self.logger.info("Sent MDSExtendedPollActionNumeric")
+            if self.idle:
+                self.ser.send(self.MDSExtendedPollActionNumeric)
+                self.last_keep_alive = time.monotonic()
+                self.idle = False
             res, message_type = self.receive()
-            print(f"\n\n\n{message_type=}\n{self.decoder.readData(res)=}")
-            if message_type == "AssociationAbort":
-                self.connected = False
+            if self._error_count > self._max_error_count:
+                self.logger.critical(
+                    f"Intellivue failed to respond for too long. Reinitializing."
+                )
+                self.close()
                 self.setup()
 
-            if message_type in [
-                "LinkedMDSExtendedPollActionResult",
-                "MDSExtendedPollActionResult",
-            ]:
-                # MDSExtendedPollActionResult is usually empty
-                # self.fields_counter(res)
-                # print(f"{self.successes}/{self.total}/{time.time() - self.initiation_time:0.1f}, {message_type}")
-                self.successes += 1
-                print(time.time() - self.last_packet, "since last success")
-                self.last_packet = time.time()
-                l, self.legacy_vitals = self.make_packet(res)
-                if len(l) == 0:
-                    # sometimes the parsed message is empty?
-                    return self.poll()
-                l["Timestamp"] = str(int(time.time() * 1000))
-                l["UID"] = f"{self.parentmac}:{self.ttyDEV}"
-                return l, False
-            return self.poll()
-        except:
-            return self.poll()
+                return None, False
+            # print(f"\n\n\n{message_type=}\n{self.decoder.readData(res)=}")
+            match message_type:
+                case "AssociationAbort":
+                    self.connected = False
+                    self.setup()
+                case "LinkedMDSExtendedPollActionResult":
+                    vit, rorls_type = self.make_packet(res)
+                    match rorls_type:
+                        case "RORLS_FIRST":
+                            self.vitals_dict = vit
+                            self.debug_vitals = [vit]
+                        case "RORLS_NOT_FIRST_NOT_LAST":
+                            self.vitals_dict.update(vit)
+                            self.debug_vitals.append(vit)
+                        case "RORLS_LAST":
+                            self.vitals_dict.update(vit)
+                            self.debug_vitals.append(vit)
+                            # filter based on leaf interface settings
+                            legacy = [
+                                dict(n=vit_key, v=self.vitals_dict[vit_key])
+                                for vit_key in self.vitals_dict
+                            ]
+                            self.legacy_vitals = {
+                                "l": legacy,
+                                "n": "v",
+                                "v": str(int(time.time() * 1000)),
+                            }
+                            self.vitals_dict["Timestamp"] = str(int(time.time() * 1000))
+                            self.vitals_dict["UID"] = f"{self.UID}"
+                            print(
+                                time.monotonic() - self.last_packet,
+                                "since last success",
+                            )
+                            self.last_packet = time.monotonic()
+                            self.successes += 1
+                            return self.vitals_dict, False
+                        case _:
+                            # error?
+                            return None, True
+                # return self.poll()
+                case "MDSExtendedPollActionResult":
+                    self.make_packet(res)
+                    self.vitals_dict = {}
+                    self.debug_vitals = []
+                    self.idle = True
+                    pass
+                case _:
+                    return None, True
+        except Exception as e:
+            # return self.poll()
+            self.logger.critical(f"Error in poll in ivue.py: \n{e}")
+            return None, True
+        return None, False
 
     def pulse(self):
-        message = f'\u007b"UID": "{self.parentmac}:{self.ttyDEV}", "DID": "{self.DID}", "VentType": "{self.vent_type}", "Baud": {self.ttyBAUD}, "Protocol": "{self.protocol}", "ParentNode": "{self.parentmac}", "DeviceStatus": "{self.status}", "Timestamp": "{str(int(time.time()*1000))}"\u007d'
-        topic = f"Pulse/leafs/{self.parentmac}:{self.ttyDEV}"
+        message = f'\u007b"UID": "{self.UID}", "DID": "{self.DID}", "VentType": "{self.vent_type}", "Baud": {self.ttyBAUD}, "Protocol": "{self.protocol}", "ParentNode": "{self.parentmac}", "DeviceStatus": "{self.mode}", "MDSstatus":"{self.status}","MDSmode":"{self.mode}","BedLabel":"{self.bedlabel}","Timestamp": "{str(int(time.time()*1000))}"\u007d'
+        topic = f"Pulse/leafs/{self.UID}:{self.ttyDEV}"
         return topic, message
 
     def test_run(self):
         while True:
             if self.connected:
-                packet, res = self.poll()
-                print("vitals topic:\n     ", self.vitals_topic, "\n\n")
-                print("Packet:\n    ", packet, "\n\n")
-                print("legacy vitals topic:\n     ", self.legacy_vitals_topic, "\n\n")
-                print("legacy vitals packet:\n     ", self.legacy_vitals, "\n\n")
-                pulse_topic, pulse_message = self.pulse()
-                print("pulse topic:\n     ", pulse_topic, "\n\n")
-                print("pulse:\n     ", pulse_message, "\n\n\n\n\n")
+                packet, err = self.poll()
+                if packet:
+                    print("vitals topic:\n     " + self.vitals_topic)
+                    print("Packet:\n    ", packet, "\n")
+                    # print("legacy vitals topic:\n     "+ self.legacy_vitals_topic+ "\n\n")
+                    # print("legacy vitals packet:\n     ", self.legacy_vitals, "\n\n")
+                    pulse_topic, pulse_message = self.pulse()
+                    print("pulse topic:\n     " + pulse_topic)
+                    print("pulse:\n     ", pulse_message, "\n")
+            else:
+                # try connecting again?
+                self.close()
+                self.setup()
             time.sleep(self.wait)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.CRITICAL)
+    logging.basicConfig(level=logging.INFO)
 
     s = Intellivue("ttyAMA1", 115200, "12:45:a3:bf:ed:12", logging)
     s.test_run()

@@ -30,7 +30,7 @@ class parser(parsers.parser.parser):
         # scan baud rate here?
         self.name = "Intellivue"
         self.DID = ""
-        self.vent_type = "MP70"
+        self.vent_type = "Intellivue"
         self.baud = 115200
         self.protocol = "MIB"
         self.serial_info = {
@@ -44,11 +44,14 @@ class parser(parsers.parser.parser):
         tty = self.interface.split("/")[-1]
         print(tty)
         self._poll_freq = 0.2
-        self._send_freq = 0.2
-        self.intellivue = Intellivue(
-            ttyDEV=tty, ttyBaud=self.serial_info["brate"], mac=self.parent,self.logger
-        )
+        self._send_freq = 10
         self.logger.debug("Starting Intellivue")
+        self.intellivue = Intellivue(
+            ttyDEV=tty,
+            ttyBaud=self.serial_info["brate"],
+            mac=self.parent,
+            logger=self.logger,
+        )
 
         self.last_packet = {"last_time": time.time()}
         self.vitals_priority = 6
@@ -61,10 +64,12 @@ class parser(parsers.parser.parser):
         # self.fields will  be parsers.parser.send_all
         #    or parser.send_delta
         #    or parser.send_named
-        self._poll_freq = 0.2
-        self._send_freq = 0.2
-        self._last_send = time.monotonic()
-        # self.last_packet = {}
+        self._last_send = time.monotonic() - 10
+        self._last_recieved_packet = ""
+        self._last_recieved_pulse = ""
+        self._last_legacy_message = Message(
+            payload={"n": "v", "l": [], "v": 0}, topic=self.legacy_topic
+        )
 
     def check_deltas(self, msg):
         lp = self.last_packet
@@ -81,7 +86,39 @@ class parser(parsers.parser.parser):
         print("packet differences = ", diffs)
 
     def poll(self):
-        self.publish()
+        if self.intellivue.connected:
+            packet, err = self.intellivue.poll()
+            if packet:
+                self.put(
+                    self.vitals_priority,
+                    Message(topic=self.vitals_topic, payload=packet),
+                )
+                self.status = self.intellivue.mode
+                self._last_send = time.monotonic()
+            """if packet:
+                self._last_recieved_packet = packet
+                self._last_legacy_message = Message(
+                    payload=self.intellivue.legacy_vitals,
+                    topic=self.intellivue.legacy_vitals_topic,
+                )
+                pulse_topic, pulse_message = self.intellivue.pulse()
+                self._last_recieved_pulse = pulse_message
+                self.status = self.intellivue.status
+            if self._last_recieved_packet and (
+                self._last_send + self._send_freq < time.monotonic()
+            ):
+                self.put(
+                    self.vitals_priority,
+                    Message(
+                        topic=self.vitals_topic, payload=self._last_recieved_packet
+                    ),
+                )
+                self._last_send = time.monotonic()"""
+        else:
+            # try connecting again?
+            self.intellivue.close()
+            self.intellivue.setup()
+        # if connection failed, update what?
 
     def send_message(self):
         packet, err = self.intellivue.poll()
@@ -135,51 +172,41 @@ class parser(parsers.parser.parser):
         if status == 0:
             success_count += 1
             print(
-                f"{success_count}/{total_count} Send at`{msg['v']}` to topic `{topic}`"
+                f"{success_count}/{total_count} Send at`{msg['v']}` to topic `{self.vitals_topic}`"
             )
         else:
             print(
-                f"{total_count-success_count}/{total_count} Failed to send message to topic {topic}"
+                f"{total_count-success_count}/{total_count} Failed to send message to topic {self.vitals_topic}"
             )
         return success_count
 
-    def publish(self):
-        success_count = 0
-        total_count = 0
+    def _del(self):
+        self.intellivue.close()
+        self.logger.shutdown()
 
-        total_count += 1
-        # print(self.intellivue.poll()[0])
-        # return
-        try:
-            if self._send_freq + self._last_send > time.monotonic():
-                msg, result = self.send_message()
-                self.check_deltas(msg)
-                success_count = self.report_status(
-                    msg, result, success_count, total_count
-                )
-                self._last_send = time.monotonic()
-        except:
-            print("Unhandled exception in mqtt publish, line 79")
+    def validate_hardware(self, starting_baud=115200):
+        if self.intellivue.connected:
+            return True
+        self.intellivue.close()
+        res = self.intellivue.setup()
+        self.intellivue.close()
+        return res
 
 
 if __name__ == "__main__":
-    print("waiting for debugger to attach")
-    # debugpy.listen(5678)
-
-    # Pause the program until a remote debugger is attached
-    debugpy.wait_for_client()
-    debugpy.breakpoint()
-    print("breakpoint here")
     q = queue.PriorityQueue(maxsize=3)
     x = parsers.parser.import_parsers()
     print(f"All parsers available: {x}")
     p = x["intellivue"].parser(tty="ttyAMA1", parent="123", txQueue=q)
     p.loop_start()
-
+    last_status = None
     while True:
         if q.not_empty:
-            print(f"Recieved {q.get()}")
+            print(f"\n\n\n\n\nRecieved {q.get()}\n\n\n\n\n")
         time.sleep(0.1)
+        if last_status != p.intellivue.status:
+            print("\n\n\n\n\n" + p.intellivue.status + "\n\n\n\n\n")
+            last_status = p.intellivue.status
 
     # view longest delays between packets with
     # grep success mqtt_log.txt | cut -f1 -d' ' | sort | gnuplot -p -e "plot '<cat' title 'packet delay'"

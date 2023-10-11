@@ -54,7 +54,7 @@ class parser(parsers.parser.parser):
         #    or parser.send_named
         self._last_send = 0
         self.last_packet = {}
-        self.publish()
+        # self.publish()
 
     def poll(self):
         self.publish()
@@ -137,7 +137,7 @@ class parser(parsers.parser.parser):
                 self.vitals_topic
                 # build message packets with their priority and send to leaf txQueue
                 vit["UID"] = self.UID
-                vit["timestamp"] = str(int(time.time() * 1000))
+                vit["Timestamp"] = str(int(time.time() * 1000))
                 responses = []
                 responses.append(
                     self.put(
