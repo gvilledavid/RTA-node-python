@@ -18,7 +18,7 @@ class RotatingLogger:
         self.UID = f"Rotating Logger {logname}:{str(int(time.time()))}"
         self.logger = logging.getLogger(self.UID)
 
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.NOTSET)
         self.handler = logging.handlers.RotatingFileHandler(
             self.logfile, "a", maxBytes=maxFileSize, backupCount=backupCount
         )

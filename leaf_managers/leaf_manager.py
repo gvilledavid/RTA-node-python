@@ -33,7 +33,7 @@ class UARTLeafManager:
         self.hardware_status_file = f"/dev/piUART/status/{self.interface}"
         self.qos = 1
         self.retain = False
-        self.last_idx = 0
+        self.last_idx = -1
         if not logger:
             self.logger = RotatingLogger(f"UARTLeafManager-{interface}.log")
         else:
@@ -67,7 +67,7 @@ class UARTLeafManager:
                         )
                     tmp_parser = parser_name
                     tmp_baud = int(baud)
-                    self.logger.info(f"Previous config was {tmp_parser} at {tmp_baud}")
+                    self.logger.debug(f"Previous config was {tmp_parser} at {tmp_baud}")
                 except:
                     pass
         if self._last_cable_status:
@@ -77,7 +77,7 @@ class UARTLeafManager:
                         tty=interface, parent=self.parent, txQueue=self.txQueue
                     )
                     # test_parser.loop_start()
-                    self.logger.info(f"Scanning for {self.parser_name}")
+                    self.logger.debug(f"Scanning for {self.parser_name}")
                     if tmp_parser and self.parser_name == tmp_parser and tmp_baud:
                         valid = self.parser.validate_hardware(starting_baud=tmp_baud)
                     else:
@@ -156,7 +156,7 @@ class UARTLeafManager:
     def check_cable_event(self):
         if self.cable_is_connected() != self._last_cable_status:
             self._last_cable_status = not self._last_cable_status
-            self.logger.info(
+            self.logger.debug(
                 f"Detected a "
                 + ("new connection." if self._last_cable_status else "disconnection.")
             )
@@ -203,7 +203,7 @@ class UARTLeafManager:
         self.parser_name = self.ordered_parser_list_keys[idx]
         self.destroy_parser(assign_generic=False)
         try:
-            self.logger.info(f"Scanning for {self.parser_name}")
+            self.logger.debug(f"Scanning for {self.parser_name}")
             self.parser = self.parser_list[self.parser_name].parser(
                 tty=self.interface, parent=self.parent, txQueue=self.txQueue
             )
