@@ -1,6 +1,7 @@
 import os, sys, time
 import json
 import serial
+import queue
 
 # from parser folder
 sys.path.append(
@@ -10,65 +11,113 @@ sys.path.append(
     os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 )  # add RTA-node-python to path
 
-from PB840.PB840_datagram import datagrams
-from PB840.PB840_data_to_packet import create_packet
 
-# from PB840_serial import get_ventilator_data
-from PB840.PB840_fields import PB840_BAUD_RATES
+from V60 import V60_data_to_packet
+
+# from V60_serial import get_ventilator_data
+from V60.V60_fields import V60_BAUD_RATES, V60_CHECKSUM_VRPT
 
 
 import parsers.parser
-from tools.MQTT import Message
+from tools.MQTT import Message, MQTT
 
 
-# 'PB840.PB840': <module 'PB840.PB840' from 'C:\\Users\\Srazo\\Documents\\GitHub\\RTA-node-python\\parsers\\PB840\\PB840.py'>, 'parsers.PB840': <module 'parsers.PB840' from 'C:\\Users\\Srazo\\Documents\\GitHub\\RTA-node-python\\parsers\\PB840\\__init__.py'>, 'parsers.PB840.PB840': <module 'parsers.PB840.PB840' from 'C:\\Users\\Srazo\\Documents\\GitHub\\RTA-node-python\\parsers\\PB840\\PB840.py'>}
-# package="PB840"
+# package="V60"
 # new_parser=sys.modules[f"parsers.{package}"].parser(*args)
 class parser(parsers.parser.parser):
     def _init(self):
         # super calls _init at the end of its constructor, _init overwritable by child
         # dont overwrite __init__, or if you do, call super.__init__ as the first thing
         # in child constructor
-        self.name = "PB840"
-        self.DID = ""
-        self.vent_type = ""
-        self.baud = 9600  # todo, load this from config file for last known good
-        self.protocol = ""
+        self.name = "V60"
+        self.DID = "Not Specified by protocol"
+        self.vent_type = "V60"
+        self.baud = 115200  # todo, load this from config file for last known good
+        self.baud_rates = [9600, 19200, 115200]
+        self.protocol = "DCI"
         self.serial_info = {
             "tty": self.interface,
             "brate": self.baud,
             "tout": 0.5,
-            "cmd": b"SNDF\r",
+            "cmd": b"SNDA\r",
             "par": serial.PARITY_NONE,
             "rts_cts": 0,
+            "expected_bits": 2 * V60_CHECKSUM_VRPT[0] * 8,
         }
         self.vitals_priority = 6
-        self.vitals_topic = f"Device/vitals/{self.UID}"
+        self.vitals_topic = f"Devices/vitals/{self.UID}"
         self.settings_priority = 7
-        self.settings_topic = f"Device/settings/{self.UID}"
-        self.legacy_topic = f"Device/vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
+        self.settings_topic = f"Devices/settings/{self.UID}"
+        self.alarms_topic = f"Devices/alarms/{self.UID}"
+        self.alarms_priority=3
+        self.legacy_topic = f"Device/Vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
         self.qos = 1
-        self.send_legacy = True
+        self.send_legacy = False
         # self.fields will  be parsers.parser.send_all
         #    or parser.send_delta
         #    or parser.send_named
-        self._last_send = 0
+        self._last_send = time.monotonic()
         self.last_packet = {}
-        self.publish()
+        self.success_count = 0
+        self.total_count = 0
+        self.was_connected = False
+        self._send_freq = 6
+        self._poll_freq = 2
+        self.packets_since_last_failure = 0
+        self._max_error_count = 5
 
     def poll(self):
-        self.publish()
+        if self.was_connected:
+            if self._last_send + self._send_freq > time.monotonic():
+                return
+            # self.set_send_freq() from parent to update _send_freq time
+            self.total_count += 1
+
+            msg, result = self.send_message()
+            self.success_count = self.report_status(
+                msg, result, self.success_count, self.total_count
+            )
+        else:
+            print("not connected, attempting...")
+            self.logger.info("not connected, attempting...")
+            self.validate_hardware()
 
     # scan_brate method needs to either be overwritten or validate_packet needs to be implemented
-    def validate_packet(dg):
-        pass
+    def validate_packet(self, dg):
+        try:
+            data = V60_data_to_packet.get_data_as_fields(dg)
+            response = data[0][1]
+            if "MISCA" in response:
+                # self.vent_type = data[4][1][0:3]
+                # self.DID = data[4][1][4:]
+                self.was_connected = True
+                self.baud = self.serial_info["brate"]
+                self.status = "MONITORING"
+                return data, True
+        except Exception as e:
+            pass
 
-    def parse(self):
-        pass
+        self.was_connected = False
+        self.status = "NOT COMMUNICATING"
+        return {}, False
 
-    def validate_hardware(self):
+    def validate_hardware(self, starting_baud=None):
         # return true if real vent is detected
-        pass
+        # dg,err =self.get_uart_data()
+        if not starting_baud and self.was_connected:
+            return self.validate_hardware(self.baud)
+        if starting_baud:
+            if starting_baud in self.baud_rates:
+                idx = self.baud_rates.index(starting_baud)
+                if idx:
+                    self.baud_rates[0], self.baud_rates[idx] = (
+                        self.baud_rates[idx],
+                        self.baud_rates[0],
+                    )
+            else:
+                self.baud_rates.insert(0, starting_baud)
+
+        return self.scan_baud()
 
     def check_deltas(self, msg):
         lp = self.last_packet
@@ -84,47 +133,21 @@ class parser(parsers.parser.parser):
         print("packet differences = ", diffs)
 
     def send_message(self):
-        if 4 <= len(self.serial_info):
-            dg = self.get_uart_data(debug=False)
-            msg, err = create_packet(dg, debug=True)
+        # respect self.mode setting when building packet
+        dg, status = self.get_uart_data(debug=False)
+        msg = ""
+        if status:
+            msg, alarms, err = V60_data_to_packet.create_packet(dg, debug=False)
         else:
-            msg, err = create_packet(datagrams[0], debug=True)
+            err = True
         if not err:
             # todo: refactor this mess
             if not err:
+                ts = str(int(time.time() * 1000))
                 vit = {}
                 sets = {}
-                settings = [
-                    "VtID",
-                    "Type",
-                    "Mode",
-                    "MType",
-                    "SType",
-                    "SetRate",
-                    "SetVT",
-                    "PFlow",
-                    "SetFlow",
-                    "SetFIO2",
-                    "SetPEEP",
-                    "SetPSV",
-                    "SetP",
-                    "SetTi",
-                ]
-                vitals = [
-                    "Pplat",
-                    "TotBrRate",
-                    "VTe",
-                    "MinVent",
-                    "PIP",
-                    "Ti",
-                    "VTi",
-                    "PEEPi",
-                    "RSBI",
-                    "TiTtot",
-                    "PEEP",
-                    "Raw",
-                    "NIF",
-                ]
+                settings = ["TIME", "Mode", "SetRR", "SetFI02", "SetPEEP", "SetPSV"]
+                vitals = ["TotBrRate", "VT", "MinVent", "PIP"]
                 # todo:do this before you convert to the legacy format
                 for v in msg.get("l", []):
                     if v["n"] in vitals:
@@ -134,7 +157,7 @@ class parser(parsers.parser.parser):
                 self.vitals_topic
                 # build message packets with their priority and send to leaf txQueue
                 vit["UID"] = self.UID
-                vit["timestamp"] = str(int(time.time() * 1000))
+                vit["Timestamp"] = ts
                 responses = []
                 responses.append(
                     self.put(
@@ -147,14 +170,30 @@ class parser(parsers.parser.parser):
                         ),
                     )
                 )
+
                 sets["UID"] = self.UID
-                sets["timestamp"] = str(int(time.time() * 1000))
+                sets["Timestamp"] = ts
                 responses.append(
                     self.put(
                         self.settings_priority,
                         Message(
                             topic=self.settings_topic,
-                            payload=vit,
+                            payload=sets,
+                            qos=self.qos,
+                            retain=False,
+                        ),
+                    )
+                )
+                alarm_dict = {}
+                alarm_dict["Alarms"] = alarms
+                alarm_dict["UID"] = self.UID
+                alarm_dict["Timestamp"] = ts
+                responses.append(
+                    self.put(
+                        self.alarms_priority,
+                        Message(
+                            topic=self.alarms_topic,
+                            payload=alarm_dict,
                             qos=self.qos,
                             retain=False,
                         ),
@@ -175,7 +214,7 @@ class parser(parsers.parser.parser):
 
                 return msg, [-1 if False in responses else 0]
 
-            self.put()
+            # self.put()
         else:
             return msg, [-1]
 
@@ -187,27 +226,34 @@ class parser(parsers.parser.parser):
             print(
                 f"{self.success_count}/{self.total_count} Send at`{msg['v']}` to topic `{self.legacy_topic}`"
             )
-            self.packets_since_last_failure = 0
+            packets_since_last_failure = 0
+            self._last_send = time.monotonic()
         else:
             self.packets_since_last_failure += 1
             print(
-                f"{self.total_count-self.success_count}/{self.total_count} Failed to send message to topic {topic}"
+                f"{self.total_count-self.success_count}/{self.total_count} Failed to send message to topic {self.legacy_topic}"
             )
-            if self.packets_since_last_failure > 10:
-                self.scan_brate()
+            if self.packets_since_last_failure > self._max_error_count:
+                print("Failed too many times, scanning baud rate...")
+                self.logger.info("Failed too many times, scanning baud rate...")
+                self.validate_hardware()
                 self.packets_since_last_failure = 0
         return success_count
 
-    def publish(self):
-        self.success_count = 0
-        self.total_count = 0
 
-        if self._last_send + self._send_freq > time.time():
-            return
-        # self.set_send_freq() from parent to update _send_freq time
-        self.total_count += 1
-
-        msg, result = self.send_message()
-        self.success_count = self.report_status(
-            msg, result, self.success_count, self.total_count
-        )
+if __name__ == "__main__":
+    q = queue.PriorityQueue(maxsize=3)
+    x = parsers.parser.import_parsers()
+    print(f"All parsers available: {x}")
+    p = x["V60"].parser(tty="ttyAMA3", parent="123", txQueue=q)
+    if p.validate_hardware():
+        print("valid vent detected")
+    p.loop_start()
+    last_status = None
+    while True:
+        if q.not_empty:
+            print(f"\n\n\n\n\nRecieved {q.get()}\n\n\n\n\n")
+        time.sleep(0.1)
+        if last_status != p.status:
+            print("\n\n\n\n\n" + p.status + "\n\n\n\n\n")
+            last_status = p.status
