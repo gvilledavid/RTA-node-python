@@ -261,7 +261,7 @@ class UARTLeafManager:
 
 
 if __name__ == "__main__":
-    leaf = UARTLeafManager("ttyAMA2", "123")
+    leaf = UARTLeafManager("ttyAMA4", "123")
     leaf.loop_start()
     puls, vits = [time.time() * 1000, 0, 0], [time.time() * 1000, 0, 0]  # last,ct,avg
     while True:

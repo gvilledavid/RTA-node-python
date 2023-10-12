@@ -178,6 +178,7 @@ class parser(parsers.parser.parser):
                     "PEEP",
                     "Raw",
                     "NIF",
+                    "fspon",
                 ]
                 # todo:do this before you convert to the legacy format
                 for v in msg.get("l", []):

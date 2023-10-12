@@ -36,7 +36,7 @@ def get_data_as_fields(data):
     """Create list of [field ID, value] from the V60 datagram"""
     # TODO, Remove unimportant fields
     # -5 for access
-    print(data)
+    # print(data)
     header, fields_b = data.split(b",\x02")
     command_name, n_chars, n_fields = header.decode().split(",")
     fields_b = fields_b.replace(b"\x03\r", b"")
@@ -47,7 +47,7 @@ def get_data_as_fields(data):
     fields = [i.strip() for i in fields_b.decode().split(",")[:-1]]
     # print(f"checksums = {n_chars}, {n_fields}")
     # TODO: verify miscf is miscf, verify checksums
-    print(len(fields_b), len(fields))
+    # print(len(fields_b), len(fields))
     if (
         len(fields_b) != V60_CHECKSUM[0]
         or len(fields) != V60_CHECKSUM[1]
@@ -56,11 +56,8 @@ def get_data_as_fields(data):
     ):
         # create_packet(0, False)
         raise Exception
-    raw = [
-        [i + 1, v.strip()] if 2 < i else [i + 1, v.strip()]
-        for i, v in enumerate(data.decode().split(","))
-    ]
-    raw = [i for i in raw if i[0] not in V60_REMOVE_FIELDS]
+    raw = [[0, command_name]]
+    raw.extend([[i + 1, v.strip()] for i, v in enumerate(fields)])
     return raw
 
 
@@ -83,13 +80,13 @@ def set_corrections(raw):
     # raw[78 - 2][1] = to_mL(raw[78 - 2][1])  # VTi
     # raw[14 - 2][1] = to_mL(raw[14 - 2][1])  # setVT
     if VRPT_On:
-        raw[54 - 2][1] = V60_MODEMAP[raw[54 - 2][1]]
-        raw[78 - 2][1] = to_mL(raw[78 - 2][1])  # VT
-        raw[80 - 2][1] = to_mL(raw[80 - 2][1])  # MinVent
+        raw[54][1] = V60_MODEMAP[raw[54][1]]
+        raw[77][1] = to_mL(raw[77][1])  # VT
+        raw[79][1] = to_mL(raw[79][1])  # MinVent
     else:
-        raw[6 - 2][1] = V60_MODEMAP[raw[6 - 2][1]]
-        raw[32 - 2][1] = to_mL(raw[32 - 2][1])  # VT
-        raw[33 - 2][1] = to_mL(raw[33 - 2][1])  # MinVent`
+        raw[5][1] = V60_MODEMAP[raw[5][1]]
+        raw[31][1] = to_mL(raw[31][1])  # VT
+        raw[32][1] = to_mL(raw[32][1])  # MinVent`
 
 
 def set_webstrings(raw):
@@ -97,16 +94,23 @@ def set_webstrings(raw):
     for i in range(len(raw)):
         if raw[i][0] in V60_WEB_STRINGS:
             raw[i][0] = V60_WEB_STRINGS[raw[i][0]]
+        # else we could remove here
 
 
-def set_fspon(raw, res):
+def set_fspon(raw):
     """set fpons = TotBrRate - SetRate (or 0 if negative)"""
-    if VRPT_On:
-        fspon = max(0, float(raw[23][1]) - float(raw[8][1]))
-        res.append({"n": "fspon", "v": f"{fspon:0.6f}"})
-    else:
-        fspon = max(0, float(raw[11][1]) - float(raw[3][1]))
-        res.append({"n": "fspon", "v": f"{fspon:0.6f}"})
+    try:
+        if VRPT_On:
+            fspon = max(0, float(raw[81][1]) - float(raw[55][1]))
+            # res.append({"n": "fspon", "v": f"{fspon:0.6f}"})
+        else:
+            fspon = max(0, float(raw[30][1]) - float(raw[6][1]))
+            # res.append({"n": "fspon", "v": f"{fspon:0.6f}"})
+        raw.append(["fspon", fspon])
+        return True
+    except:
+        # probably not numeric
+        return False
 
 
 def check_alarm(raw, i, debug):
@@ -136,10 +140,10 @@ def set_ifalarm_active(raw, res, debug):
 def create_alarms_packet(raw, verbose=False):
     alarms = []
     for field in raw:
-        if field[0] in V60_ALARMS.keys():
+        if field[0] in V60_ALARMS:
             if verbose or field[1] != "NORMAL":
                 alarm = V60_ALARMS.get(
-                    field[0], {"message": "Unkown alarm", "Priority": 1}
+                    field[0], {"message": "Unknown alarm", "Priority": 1}
                 )
                 alarms.append(
                     {
@@ -159,14 +163,12 @@ def create_packet(data, debug=False):
     try:
         raw = get_data_as_fields(data)
         set_corrections(raw)
+        set_fspon(raw)
+        raw = [i for i in raw if i[0] not in V60_REMOVE_FIELDS]
         set_webstrings(raw)
+        legacy_res = [{"n": str(i[0]), "v": i[1]} for i in raw]
         # print(raw)
         alarms = create_alarms_packet(raw, debug)
-        # generate result and add
-        legacy_res = [{"n": str(i[0]), "v": i[1]} for i in raw]
-
-        set_fspon(raw, legacy_res)
-        # set_ifalarm_active(raw, legacy_res, debug)
 
         return (
             {"l": legacy_res, "n": "v", "v": str(int(time.time() * 1000))},

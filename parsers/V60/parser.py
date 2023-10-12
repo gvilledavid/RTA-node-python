@@ -33,12 +33,12 @@ class parser(parsers.parser.parser):
         self.DID = "Not Specified by protocol"
         self.vent_type = "V60"
         self.baud = 115200  # todo, load this from config file for last known good
-        self.baud_rates = [9600, 19200, 115200]
+        self.baud_rates = [9600, 19200, 38400, 115200]
         self.protocol = "DCI"
         self.serial_info = {
             "tty": self.interface,
             "brate": self.baud,
-            "tout": 0.5,
+            "tout": 3,
             "cmd": b"SNDA\r",
             "par": serial.PARITY_NONE,
             "rts_cts": 0,
@@ -49,7 +49,7 @@ class parser(parsers.parser.parser):
         self.settings_priority = 7
         self.settings_topic = f"Devices/settings/{self.UID}"
         self.alarms_topic = f"Devices/alarms/{self.UID}"
-        self.alarms_priority=3
+        self.alarms_priority = 3
         self.legacy_topic = f"Device/Vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
         self.qos = 1
         self.send_legacy = False
@@ -147,14 +147,14 @@ class parser(parsers.parser.parser):
                 vit = {}
                 sets = {}
                 settings = ["TIME", "Mode", "SetRR", "SetFI02", "SetPEEP", "SetPSV"]
-                vitals = ["TotBrRate", "VT", "MinVent", "PIP"]
+                vitals = ["TotBrRate", "VT", "MinVent", "PIP", "fspon"]
                 # todo:do this before you convert to the legacy format
                 for v in msg.get("l", []):
                     if v["n"] in vitals:
                         vit[v["n"]] = v["v"]
                     if v["n"] in settings:
                         sets[v["n"]] = v["v"]
-                self.vitals_topic
+                # self.vitals_topic
                 # build message packets with their priority and send to leaf txQueue
                 vit["UID"] = self.UID
                 vit["Timestamp"] = ts

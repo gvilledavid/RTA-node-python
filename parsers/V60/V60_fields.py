@@ -1,5 +1,6 @@
 # For removing extraneous fields (ex: reserved fields)
 V60_REMOVE_FIELDS_SNDA = [
+    0,
     2,
     3,
     7,
@@ -72,6 +73,7 @@ V60_REMOVE_FIELDS_SNDA = [
 ]  # TODO: add all reserved or unused fields as well
 # VRPT version
 V60_REMOVE_FIELDS_VRPT = [
+    0,
     5,
     6,
     7,

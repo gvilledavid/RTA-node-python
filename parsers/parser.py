@@ -161,12 +161,23 @@ class parser:
                 parity=self.serial_info["par"],
                 rtscts=self.serial_info["rts_cts"],
             ) as ser:
+                time.sleep(0.2)
                 ser.flush()
+                time.sleep(0.2)
                 if cmd_overwrite:
                     ser.write(cmd_overwrite)
                 else:
                     ser.write(self.serial_info["cmd"])
+                time.sleep(0.2)
                 line = ser.readline()
+                if len(line) > 7:
+                    if b"?ERROR" in line[:7]:
+                        if cmd_overwrite:
+                            ser.write(cmd_overwrite)
+                        else:
+                            ser.write(self.serial_info["cmd"])
+                        line = ser.readline()
+
                 ser.close()
                 if b"\r" in line:
                     status = 1
