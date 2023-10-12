@@ -188,6 +188,7 @@ class parser(parsers.parser.parser):
         if self.intellivue.connected:
             return True
         elif self.intellivue.initial_connection_attempt + 60 < time.monotonic():
+            self.status = "DISCONNECTED"
             self.intellivue.close()
             res = self.intellivue.setup()
             self.intellivue.close()

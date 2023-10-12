@@ -35,6 +35,7 @@ class parser(parsers.parser.parser):
         self.vent_type = ""
         self.baud = 9600  # todo, load this from config file for last known good
         self.baud_rates = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200]
+        self.baud_rates.sort(reverse=True)
         self.protocol = ""
         self.serial_info = {
             "tty": self.interface,

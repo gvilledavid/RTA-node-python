@@ -307,7 +307,7 @@ class Intellivue:
                 self.logger.error("Exception while trying to receive")
                 break
         message_type = self.decoder.getMessageType(res)
-        if message_type == "TimeoutError" or not res:
+        if message_type == "TimeoutError" or not res or not message_type:
             self._error_count = self._error_count + 1
         self.logger.critical(
             f"{time.monotonic() - self.initiation_time:0.2f} {message_type}"

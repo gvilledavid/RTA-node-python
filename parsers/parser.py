@@ -95,6 +95,7 @@ class parser:
         self.parent = parent
         self.baud_rates = []
         self.queue = txQueue
+        self._timeout = 5
         self._poll_freq = 2  # how fast your poll loop runs
         self._send_freq = 2  # how fast the leaf will send info down the txqueue
         self.serial_lock = threading.Lock()
@@ -132,6 +133,11 @@ class parser:
 
     def __del__(self):
         self.loop_stop()
+        self._del()
+
+    def _del(self):
+        """overwrite to handle shutdown in the specific parser"""
+        pass
 
     def get_uart_data(self, debug=False, cmd_overwrite=None):
         """
@@ -196,6 +202,7 @@ class parser:
             if status:
                 _, valid = self.validate_packet(dg)
                 if valid:
+                    self.baud = self.serial_info["brate"]
                     return True
         self.logger.error("no valid baud rate found")
         return False
@@ -217,10 +224,11 @@ class parser:
         )
 
     def loop_start(self):
-        self.thread = threading.Thread(target=self.runner, args=())
-        self._running = True
-        self._stopped = False
-        self.thread.start()
+        if self._stopped:
+            self.thread = threading.Thread(target=self.runner, args=())
+            self._running = True
+            self._stopped = False
+            self.thread.start()
 
     def runner(self):
         while self._running:
@@ -236,9 +244,10 @@ class parser:
         raise NotImplemented("Overwrite .poll() with your loop code for this parser.")
 
     def loop_stop(self):
-        self._running = False
-        self.thread.join(self._timeout)
-        del self.thread
+        if self._running:
+            self._running = False
+            self.thread.join(self._timeout)
+            del self.thread
 
     def set_baud_rate(self, brate):
         self.baud = brate
@@ -305,9 +314,9 @@ class default_parser(parser):
     def _init(self):
         self.name = "Empty parser"
         self.DID = "NA"
-        self.vent_type = ""
+        self.vent_type = "None detected"
         self.baud = 0
-        self.protocol = ""
+        self.protocol = "None"
         self.serial_info = {
             "tty": self.interface,
             "brate": self.baud,
@@ -316,6 +325,7 @@ class default_parser(parser):
             "par": serial.PARITY_NONE,
             "rts_cts": 0,
         }
+
         self.vitals_priority = 6
         self.vitals_topic = f"Devices/vitals/{self.UID}"
         self.settings_priority = 7
@@ -324,7 +334,7 @@ class default_parser(parser):
         self.qos = 1
         self.send_legacy = True
         self.status = ""
-        self.bauds = [9600, 19200, 38400, 115200]
+        self.bauds = [115200]
         # self.fields will  be parsers.parser.send_all
         #    or parser.send_delta
         #    or parser.send_named
@@ -332,6 +342,7 @@ class default_parser(parser):
         self.last_packet = {}
 
     def poll(self):
+        pass
         if self._last_send + self._send_freq > time.monotonic():
             self._last_send = time.monotonic()
             self.put(
@@ -346,7 +357,7 @@ class default_parser(parser):
         return False
 
     def validate_error_message(self, message):
-        return True
+        return False
 
     def stop_loop(self):
         pass

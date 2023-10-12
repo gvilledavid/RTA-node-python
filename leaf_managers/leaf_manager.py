@@ -33,12 +33,13 @@ class UARTLeafManager:
         self.hardware_status_file = f"/dev/piUART/status/{self.interface}"
         self.qos = 1
         self.retain = False
-
+        self.last_idx = 0
         if not logger:
             self.logger = RotatingLogger(f"UARTLeafManager-{interface}.log")
         else:
             self.logger = logger
-
+        self._last_cable_status = False
+        self.check_cable_event()
         self.running = False
         self.stopped = True
         self.rxQueue = queue.PriorityQueue(maxsize=1000)
@@ -46,13 +47,15 @@ class UARTLeafManager:
         self.parser_list = import_parsers()
         self.has_valid_parser = False
         self.ordered_parser_list_keys = list(self.parser_list.keys())
+        tmp_baud = None
+        tmp_parser = None
         if os.path.exists(f"/usr/src/RTA/config/lastknown-{interface}.txt"):
             with open(f"/usr/src/RTA/config/lastknown-{interface}.txt", "r") as f:
                 config = f.readline()
                 if not config:
                     pass
                 try:
-                    parser_name, self.baud = config.split(":")
+                    parser_name, baud = config.split(":")
                     if parser_name in self.ordered_parser_list_keys:
                         idx = self.ordered_parser_list_keys.index(parser_name)
                         (
@@ -62,35 +65,62 @@ class UARTLeafManager:
                             self.ordered_parser_list_keys[0],
                             self.ordered_parser_list_keys[idx],
                         )
-                    self.baud = int(self.baud)
+                    tmp_parser = parser_name
+                    tmp_baud = int(baud)
+                    self.logger.info(f"Previous config was {tmp_parser} at {tmp_baud}")
                 except:
                     pass
-        for self.parser_name in self.ordered_parser_list_keys:
-            try:
-                self.parser = self.parser_list[self.parser_name].parser(
-                    tty=interface, parent=self.parent, txQueue=self.txQueue
-                )
-                # test_parser.loop_start()
-                valid = self.parser.validate_hardware(starting_baud=self.baud)
-            except:
-                valid = False
-
-            if valid:
-                self.has_valid_parser = True
-                with open(f"/usr/src/RTA/config/lastknown-{interface}.txt", "w") as f:
-                    f.write(f"{self.parser_name}:{self.parser.baud}")
-                break
-            else:
+        if self._last_cable_status:
+            for self.parser_name in self.ordered_parser_list_keys:
                 try:
-                    del self.parser
+                    self.parser = self.parser_list[self.parser_name].parser(
+                        tty=interface, parent=self.parent, txQueue=self.txQueue
+                    )
+                    # test_parser.loop_start()
+                    self.logger.info(f"Scanning for {self.parser_name}")
+                    if tmp_parser and self.parser_name == tmp_parser and tmp_baud:
+                        valid = self.parser.validate_hardware(starting_baud=tmp_baud)
+                    else:
+                        valid = self.parser.validate_hardware()
                 except:
-                    pass
-            # else continue to next parser
+                    valid = False
+
+                if valid:
+                    self.has_valid_parser = True
+                    self.last_parser_name = self.parser_name
+                    with open(
+                        f"/usr/src/RTA/config/lastknown-{interface}.txt", "w"
+                    ) as f:
+                        f.write(f"{self.parser_name}:{self.parser.baud}")
+                    break
+                else:
+                    self.destroy_parser()
+
+                # else continue to next parser
         if not self.has_valid_parser:
+            self.parser_name = "GENERIC"
+            self.last_parser_name = self.parser_name
             self.parser = default_parser(
                 interface, parent=self.UID, txQueue=self.txQueue
             )
         self.init_pulse()
+
+    def destroy_parser(self, assign_generic=True):
+        try:
+            self.parser.__del__()
+        except:
+            pass
+        try:
+            del self.parser
+        except:
+            pass
+
+        self.has_valid_parser = False
+        if assign_generic:
+            self.parser_name = "GENERIC"
+            self.parser = default_parser(
+                self.interface, parent=self.parent, txQueue=self.txQueue
+            )
 
     def scan_baud(self):
         for brate in self.parser.bauds:
@@ -123,13 +153,28 @@ class UARTLeafManager:
         self.runner = threading.Thread(target=self.loop_runner, args=())
         self.runner.start()
 
+    def check_cable_event(self):
+        if self.cable_is_connected() != self._last_cable_status:
+            self._last_cable_status = not self._last_cable_status
+            self.logger.info(
+                f"Detected a "
+                + ("new connection." if self._last_cable_status else "disconnection.")
+            )
+            return True
+        return False
+
     def loop_runner(self):
         # add flags, exception handling
         while self.running:
-            if not self.parser.validate_hardware():
-                self.find_parser()  # get the next parser in the list
-            if self.has_valid_parser and not self.parser.is_running():
-                self.parser.loop_start()
+            cable_event = self.check_cable_event()
+            if self._last_cable_status:
+                if not self.parser.validate_hardware():
+                    self.find_parser()  # get the next parser in the list
+                if self.has_valid_parser:
+                    if not self.parser.is_running():
+                        self.parser.loop_start()
+            elif cable_event:
+                self.destroy_parser()
             if time.monotonic() > (self._last_pulse_time + self.pulse_freq):
                 if not self.txQueue.full():
                     try:
@@ -147,39 +192,37 @@ class UARTLeafManager:
         self.stopped = True
 
     def find_parser(self):
-        if self.parser_name in self.ordered_parser_list_keys:
-            idx = self.ordered_parser_list_keys.index(self.parser_name) + 1
-            if idx >= len(self.ordered_parser_list_keys):
-                idx = 0
+        if self.last_parser_name in self.ordered_parser_list_keys:
+            idx = self.ordered_parser_list_keys.index(self.parser_name)
+
         else:
+            idx = self.last_idx + 1
+        if idx >= len(self.ordered_parser_list_keys):
             idx = 0
+        self.last_idx = idx
         self.parser_name = self.ordered_parser_list_keys[idx]
+        self.destroy_parser(assign_generic=False)
         try:
-            del self.parser
-        except:
-            pass
-        try:
+            self.logger.info(f"Scanning for {self.parser_name}")
             self.parser = self.parser_list[self.parser_name].parser(
                 tty=self.interface, parent=self.parent, txQueue=self.txQueue
             )
             valid = self.parser.validate_hardware()
         except:
             valid = False
-
         if valid:
             self.has_valid_parser = True
             with open(f"/usr/src/RTA/config/lastknown-{self.interface}.txt", "w") as f:
                 f.write(f"{self.parser_name}:{self.parser.baud}")
             return True
         else:
-            try:
-                del self.parser
-            except:
-                pass
+            self.destroy_parser(assign_generic=False)
         if not self.has_valid_parser:
+            self.parser_name = "GENERIC"
             self.parser = default_parser(
                 self.interface, parent=self.parent, txQueue=self.txQueue
             )
+        self.last_parser_name = self.parser_name
         return False
 
     def is_alive(self):
@@ -230,12 +273,16 @@ class UARTLeafManager:
             return self.parser.status
 
     def cable_is_connected(self):
-        try:
-            with open(self.hardware_status_file, "r") as f:
-                hw_status = f.readline().strip().rstrip("\n")
-        except:
-            hw_status = "?"
-        return hw_status[0] == "1"
+        ret = False
+        for _ in range(3):
+            try:
+                with open(self.hardware_status_file, "r") as f:
+                    hw_status = f.readline().strip().rstrip("\n")
+                ret = hw_status[0] == "1"
+                break
+            except Exception as e:
+                hw_status = "?"
+        return ret
 
     def loop_stop(self):
         self.running = False
