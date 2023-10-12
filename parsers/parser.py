@@ -333,7 +333,7 @@ class default_parser(parser):
         self.legacy_topic = f"Device/vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
         self.qos = 1
         self.send_legacy = True
-        self.status = ""
+        self.status = "DISCONNECTED"
         self.bauds = [115200]
         # self.fields will  be parsers.parser.send_all
         #    or parser.send_delta

@@ -80,7 +80,8 @@ class parser(parsers.parser.parser):
         else:
             print("not connected, attempting...")
             self.logger.info("not connected, attempting...")
-            self.validate_hardware()
+            if not self.validate_hardware():
+                self.status = "DISCONNECTED"
 
     # scan_brate method needs to either be overwritten or validate_packet needs to be implemented
     def validate_packet(self, dg):
@@ -254,7 +255,8 @@ class parser(parsers.parser.parser):
             if self.packets_since_last_failure > self._max_error_count:
                 print("Failed too many times, scanning baud rate...")
                 self.logger.info("Failed too many times, scanning baud rate...")
-                self.validate_hardware()
+                if not self.validate_hardware():
+                    self.status = "DISCONNECTED"
                 self.packets_since_last_failure = 0
         return success_count
 

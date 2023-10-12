@@ -22,7 +22,7 @@ class UARTLeafManager:
 
     def __init__(self, interface, parentUID, logger=None):
         self.interface = interface
-        self.baud = 9600
+        # self.baud = 9600
         self.parent = parentUID
         self.UID = f"{parentUID}:{interface}"
         self.command_topic = f"Commands/{self.UID}"
@@ -122,16 +122,16 @@ class UARTLeafManager:
                 self.interface, parent=self.parent, txQueue=self.txQueue
             )
 
-    def scan_baud(self):
+    """ def scan_baud(self):
         for brate in self.parser.bauds:
             dg = self.parser.get_uart_data()
             err = self.parser.validate_packet(dg)
             if not err:
-                self.baud = brate
+                self.parser.baud = brate
                 self.parser.set_baud(brate)
                 return brate
         self.logger(f"No valid baud found for {self.parser.name}")
-        return False
+        return False"""
 
     def process_commands(self, brate):
         # swap baud rate(brate): self.parser.serial_info["brate"]=brate
@@ -168,7 +168,10 @@ class UARTLeafManager:
         while self.running:
             cable_event = self.check_cable_event()
             if self._last_cable_status:
-                if not self.parser.validate_hardware():
+                if (
+                    not self.parser.validate_hardware()
+                    or self.parser.status == "DISCONNECTED"
+                ):
                     self.find_parser()  # get the next parser in the list
                 if self.has_valid_parser:
                     if not self.parser.is_running():
@@ -192,9 +195,10 @@ class UARTLeafManager:
         self.stopped = True
 
     def find_parser(self):
+        # if there once existed a parser, try it again on a reconnect
         if self.last_parser_name in self.ordered_parser_list_keys:
-            idx = self.ordered_parser_list_keys.index(self.parser_name)
-
+            idx = self.ordered_parser_list_keys.index(self.last_parser_name)
+        # else use the next parser in the list
         else:
             idx = self.last_idx + 1
         if idx >= len(self.ordered_parser_list_keys):
@@ -238,7 +242,9 @@ class UARTLeafManager:
 
     def pulse(self):
         self._pulse["DID"] = self.parser.DID
-        self._pulse["VentType"] = self.parser.vent_type
+        self._pulse[
+            "VentType"
+        ] = self.parser.vent_type  # todo only use this if parser is valid
         self._pulse["Baud"] = self.parser.baud  # last known good baud
         self._pulse["Protocol"] = self.parser.protocol
         self._pulse["DeviceStatus"] = self.device_status()

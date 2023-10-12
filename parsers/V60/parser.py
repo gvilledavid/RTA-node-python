@@ -81,14 +81,16 @@ class parser(parsers.parser.parser):
         else:
             print("not connected, attempting...")
             self.logger.info("not connected, attempting...")
-            self.validate_hardware()
+            if not self.validate_hardware():
+                self.status = "DISCONNECTED"
 
     # scan_brate method needs to either be overwritten or validate_packet needs to be implemented
     def validate_packet(self, dg):
         try:
             data = V60_data_to_packet.get_data_as_fields(dg)
             response = data[0][1]
-            if "MISCA" in response:
+            serial_num = data[2][1].strip()
+            if "MISCA" in response and serial_num == "":
                 # self.vent_type = data[4][1][0:3]
                 # self.DID = data[4][1][4:]
                 self.was_connected = True
@@ -237,7 +239,8 @@ class parser(parsers.parser.parser):
             if self.packets_since_last_failure > self._max_error_count:
                 print("Failed too many times, scanning baud rate...")
                 self.logger.info("Failed too many times, scanning baud rate...")
-                self.validate_hardware()
+                if not self.validate_hardware():
+                    self.status = "DISCONNECTED"
                 self.packets_since_last_failure = 0
         return success_count
 
