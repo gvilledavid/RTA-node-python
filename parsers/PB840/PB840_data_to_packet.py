@@ -21,11 +21,14 @@ class PB840_Packet_Creator:
         self.WEB_STRINGS = None
         self.EXTENDED_REMOVE_FIELDS = None
         if ID[0:3] == "980":
-            EXTENDED_ALARMS = BOTH_ALARMS_SNDF + PB980_ALARMS_SNDF
-            self.WEB_STRINGS = PB840_WEB_STRINGS + PB980_WEB_STRINGS
+            self.EXTENDED_ALARMS = BOTH_ALARMS_SNDF
+            self.EXTENDED_ALARMS.update(PB980_ALARMS_SNDF)
+            self.WEB_STRINGS = PB840_WEB_STRINGS
+            self.WEB_STRINGS.update(PB980_WEB_STRINGS)
             self.EXTENDED_REMOVE_FIELDS = BOTH_REMOVE_FIELDS + PB980_REMOVE_FIELDS
         else:  # elif ID[0:3] == "840":
-            EXTENDED_ALARMS = BOTH_ALARMS_SNDF + PB840_ALARMS_SNDF
+            self.EXTENDED_ALARMS = BOTH_ALARMS_SNDF
+            self.EXTENDED_ALARMS.update(PB840_ALARMS_SNDF)
             self.WEB_STRINGS = PB840_WEB_STRINGS
             self.EXTENDED_REMOVE_FIELDS = BOTH_REMOVE_FIELDS + PB840_REMOVE_FIELDS
 
@@ -48,12 +51,16 @@ class PB840_Packet_Creator:
         ):
             # create_packet(0, False)
             raise Exception
-        self.check_device_type(fields_b[6][1][0:3])
+        try:
+            name = fields[1][1][0:3]
+        except:
+            name = "840"
+        self.check_device_type(name)
         raw = [
             [i + 2, v.strip()] if 2 < i else [i + 1, v.strip()]
             for i, v in enumerate(data.decode().split(","))
         ]
-        raw = [i for i in raw if i[0] not in REMOVE_FIELDS]
+        raw = [i for i in raw if i[0] not in self.EXTENDED_REMOVE_FIELDS]
         return raw
 
     def to_mL(self, value):
@@ -140,7 +147,7 @@ class PB840_Packet_Creator:
             self.set_webstrings(raw)
             # raw = [i for i in raw if i[0] not in self.EXTENDED_REMOVE_FIELDS]
             legacy_res = [{"n": str(i[0]), "v": i[1]} for i in raw]
-            alarms = self.create_alarms_packet(raw, True)
+            alarms = self.create_alarms_packet(raw, verbose=False)
 
             # self.set_ifalarm_active(raw, legacy_res, debug)
 

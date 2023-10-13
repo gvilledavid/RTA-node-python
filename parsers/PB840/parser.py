@@ -11,8 +11,8 @@ sys.path.append(
     os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 )  # add RTA-node-python to path
 
-from PB840.PB840_datagram import datagrams
-from PB840 import PB840_data_to_packet
+# from PB840.PB840_datagram import datagrams
+from PB840.PB840_data_to_packet import PB840_Packet_Creator
 
 # from PB840_serial import get_ventilator_data
 from PB840.PB840_fields import PB840_BAUD_RATES, PB840_CHECKSUM
@@ -51,8 +51,11 @@ class parser(parsers.parser.parser):
         self.settings_priority = 7
         self.settings_topic = f"Devices/settings/{self.UID}"
         self.legacy_topic = f"Device/Vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
+        self.alarms_topic = f"Devices/alarms/{self.UID}"
+        self.alarms_priority = 3
         self.qos = 1
         self.send_legacy = False
+        self.packet_creator = PB840_Packet_Creator()
         # self.fields will  be parsers.parser.send_all
         #    or parser.send_delta
         #    or parser.send_named
@@ -86,7 +89,7 @@ class parser(parsers.parser.parser):
     # scan_brate method needs to either be overwritten or validate_packet needs to be implemented
     def validate_packet(self, dg):
         try:
-            data = PB840_data_to_packet.get_data_as_fields(dg)
+            data = self.packet_creator.get_data_as_fields(dg)
             vent_type = int(data[4][1][0:3])
             if vent_type in [840, 980]:
                 self.vent_type = data[4][1][0:3]
@@ -141,12 +144,13 @@ class parser(parsers.parser.parser):
         dg, status = self.get_uart_data(debug=False)
         msg = ""
         if status:
-            msg, err = PB840_data_to_packet.create_packet(dg, debug=False)
+            msg, alarms, err = self.packet_creator.create_packet(dg, debug=False)
         else:
             err = True
         if not err:
             # todo: refactor this mess
             if not err:
+                ts = str(int(time.time() * 1000))
                 vit = {}
                 sets = {}
                 settings = [
@@ -188,10 +192,10 @@ class parser(parsers.parser.parser):
                         vit[v["n"]] = v["v"]
                     if v["n"] in settings:
                         sets[v["n"]] = v["v"]
-                self.vitals_topic
+                # self.vitals_topic
                 # build message packets with their priority and send to leaf txQueue
                 vit["UID"] = self.UID
-                vit["Timestamp"] = str(int(time.time() * 1000))
+                vit["Timestamp"] = ts
                 responses = []
                 responses.append(
                     self.put(
@@ -206,13 +210,28 @@ class parser(parsers.parser.parser):
                 )
 
                 sets["UID"] = self.UID
-                sets["Timestamp"] = str(int(time.time() * 1000))
+                sets["Timestamp"] = ts
                 responses.append(
                     self.put(
                         self.settings_priority,
                         Message(
                             topic=self.settings_topic,
                             payload=sets,
+                            qos=self.qos,
+                            retain=False,
+                        ),
+                    )
+                )
+                alarm_dict = {}
+                alarm_dict["Alarms"] = alarms
+                alarm_dict["UID"] = self.UID
+                alarm_dict["Timestamp"] = ts
+                responses.append(
+                    self.put(
+                        self.alarms_priority,
+                        Message(
+                            topic=self.alarms_topic,
+                            payload=alarm_dict,
                             qos=self.qos,
                             retain=False,
                         ),
@@ -265,7 +284,7 @@ if __name__ == "__main__":
     q = queue.PriorityQueue(maxsize=3)
     x = parsers.parser.import_parsers()
     print(f"All parsers available: {x}")
-    p = x["PB840"].parser(tty="ttyAMA3", parent="123", txQueue=q)
+    p = x["PB840"].parser(tty="ttyAMA4", parent="123", txQueue=q)
     if p.validate_hardware():
         print("valid vent detected")
     p.loop_start()
