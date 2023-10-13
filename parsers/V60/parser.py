@@ -12,7 +12,7 @@ sys.path.append(
 )  # add RTA-node-python to path
 
 
-from V60 import V60_data_to_packet
+from V60.V60_data_to_packet import V60_Packet_Creator
 
 # from V60_serial import get_ventilator_data
 from V60.V60_fields import V60_BAUD_RATES, V60_CHECKSUM_VRPT
@@ -66,6 +66,7 @@ class parser(parsers.parser.parser):
         self._poll_freq = 2
         self.packets_since_last_failure = 0
         self._max_error_count = 5
+        self.packet_creator = V60_Packet_Creator()
 
     def poll(self):
         if self.was_connected:
@@ -87,7 +88,7 @@ class parser(parsers.parser.parser):
     # scan_brate method needs to either be overwritten or validate_packet needs to be implemented
     def validate_packet(self, dg):
         try:
-            data = V60_data_to_packet.get_data_as_fields(dg)
+            data = self.packet_creator.get_data_as_fields(dg)
             response = data[0][1]
             serial_num = data[2][1].strip()
             if "MISCA" in response and serial_num == "":
@@ -140,7 +141,7 @@ class parser(parsers.parser.parser):
         dg, status = self.get_uart_data(debug=False)
         msg = ""
         if status:
-            msg, alarms, err = V60_data_to_packet.create_packet(dg, debug=False)
+            msg, alarms, err = self.packet_creator.create_packet(dg, debug=False)
         else:
             err = True
         if not err:
@@ -249,7 +250,7 @@ if __name__ == "__main__":
     q = queue.PriorityQueue(maxsize=3)
     x = parsers.parser.import_parsers()
     print(f"All parsers available: {x}")
-    p = x["V60"].parser(tty="ttyAMA3", parent="123", txQueue=q)
+    p = x["V60"].parser(tty="ttyAMA2", parent="123", txQueue=q)
     if p.validate_hardware():
         print("valid vent detected")
     p.loop_start()
