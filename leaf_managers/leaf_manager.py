@@ -15,6 +15,8 @@ from parsers.parser import example_parser, default_parser
 from tools.MQTT import Message
 from parsers.parser import import_parsers
 
+# todo: Every non specific exception catch needs to call Exception as e and log that
+
 
 class UARTLeafManager:
     # class var
@@ -146,12 +148,12 @@ class UARTLeafManager:
         pass
 
     def loop_start(self):
-        # need to add flags here
-        self.parser.loop_start()
-        self.running = True
-        self.stopped = False
-        self.runner = threading.Thread(target=self.loop_runner, args=())
-        self.runner.start()
+        if not self.running and self.stopped:
+            self.parser.loop_start()
+            self.running = True
+            self.stopped = False
+            self.runner = threading.Thread(target=self.loop_runner, args=())
+            self.runner.start()
 
     def check_cable_event(self):
         if self.cable_is_connected() != self._last_cable_status:
@@ -166,32 +168,42 @@ class UARTLeafManager:
     def loop_runner(self):
         # add flags, exception handling
         while self.running:
-            cable_event = self.check_cable_event()
-            if self._last_cable_status:
-                if (
-                    not self.parser.validate_hardware()
-                    or self.parser.status == "DISCONNECTED"
-                ):
-                    self.find_parser()  # get the next parser in the list
-                if self.has_valid_parser:
-                    if not self.parser.is_running():
-                        self.parser.loop_start()
-            elif cable_event:
-                self.destroy_parser()
-            if time.monotonic() > (self._last_pulse_time + self.pulse_freq):
-                if not self.txQueue.full():
-                    try:
-                        # calls to full() do not guarantee space since the leaf may have written or acquired the lock
-                        # before the following .put gets called. In the event we try to put when the queue is full because
-                        # the leaf wrote the last slot, then put will block until there is space. If in addition to all this
-                        # there is a network issue happening and the queue is not emptying, then the program will freeze here forever.
-                        self.txQueue.put(self.pulsemsg(), timeout=1)
-                        self._last_pulse_time = time.monotonic()
-                    except queue.Full:
-                        self.logger.critical(
-                            "The txQueue is full and a pulse message is lost."
-                        )
-        self.destroy_parser()
+            try:
+                cable_event = self.check_cable_event()
+                if self._last_cable_status:
+                    if (
+                        not self.parser.validate_hardware()
+                        or self.parser.status == "DISCONNECTED"
+                    ):
+                        self.find_parser()  # get the next parser in the list
+                    if self.has_valid_parser:
+                        if not self.parser.is_running():
+                            self.parser.loop_start()
+                elif cable_event:
+                    self.destroy_parser()
+                if time.monotonic() > (self._last_pulse_time + self.pulse_freq):
+                    if not self.txQueue.full():
+                        try:
+                            # calls to full() do not guarantee space since the leaf may have written or acquired the lock
+                            # before the following .put gets called. In the event we try to put when the queue is full because
+                            # the leaf wrote the last slot, then put will block until there is space. If in addition to all this
+                            # there is a network issue happening and the queue is not emptying, then the program will freeze here forever.
+                            self.txQueue.put(self.pulsemsg(), timeout=1)
+                            self._last_pulse_time = time.monotonic()
+                        except queue.Full:
+                            self.logger.critical(
+                                "The txQueue is full and a pulse message is lost."
+                            )
+                time.sleep(0.1)
+            except Exception as e:
+                self.logger.critical(f"Exception has occured in main leaf loop: {e}")
+                self.running = False
+        try:
+            self.destroy_parser()
+        except Exception as e:
+            self.logger.critical(
+                f"Exception occured trying to stop the parser, parser may not be stopped. \n{e}"
+            )
         self.stopped = True
 
     def find_parser(self):
@@ -232,6 +244,11 @@ class UARTLeafManager:
     def is_alive(self):
         self.runner.join(timeout=0)
         # should we check the flags?
+        # self.running, self.stopped, condition
+        # 0,1 : not running
+        # 1,0 : running
+        # 0,0 : kill command was sent, but runner has not finished last loop
+        # 1,1 : invalid error condition
         return self.runner.is_alive()
 
     def init_pulse(self):
