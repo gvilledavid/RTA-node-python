@@ -106,6 +106,7 @@ class UARTLeafManager:
                 interface, parent=self.UID, txQueue=self.txQueue
             )
         self.init_pulse()
+        leaf.loop_start()
 
     def destroy_parser(self, assign_generic=True):
         try:
@@ -332,7 +333,7 @@ class UARTLeafManager:
 
 if __name__ == "__main__":
     leaf = UARTLeafManager("ttyAMA1", "123")
-    leaf.loop_start()
+    # leaf.loop_start()
     puls, vits = [time.time() * 1000, 0, 0], [time.time() * 1000, 0, 0]  # last,ct,avg
     count = 0
     start = time.monotonic()
