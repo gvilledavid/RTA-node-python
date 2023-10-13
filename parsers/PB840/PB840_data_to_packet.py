@@ -1,7 +1,25 @@
 import time
-from PB840.PB840_fields import PB840_WEB_STRINGS, PB840_CHECKSUM, MODEMAP, REMOVE_FIELDS
+from PB840.PB840_fields import (
+    PB840_WEB_STRINGS,
+    PB980_WEB_STRINGS,
+    PB840_CHECKSUM,
+    MODEMAP,
+    REMOVE_FIELDS,
+    BOTH_ALARMS_SNDF,
+    PB980_ALARMS_SNDF,
+    PB840_ALARMS_SNDF,
+)
 
 # from PB840.PB840_datagram import datagrams
+
+
+def check_device_type(ID):
+    if ID[0:3] == "980":
+        EXTENDED_ALARMS = BOTH_ALARMS_SNDF + PB980_ALARMS_SNDF
+        WEB_STRINGS = PB840_WEB_STRINGS + PB980_WEB_STRINGS
+    else:  # elif ID[0:3] == "840":
+        EXTENDED_ALARMS = BOTH_ALARMS_SNDF + PB840_ALARMS_SNDF
+        WEB_STRINGS = PB840_WEB_STRINGS
 
 
 def get_data_as_fields(data):
@@ -111,8 +129,3 @@ def create_packet(data, debug=False):
         return {"l": legacy_res, "n": "v", "v": str(int(time.time() * 1000))}, False
     except:
         return {"n": "v", "v": str(int(time.time() * 1000))}, True
-
-
-if __name__ == "__main__":
-    for dg in datagrams:
-        print("example =", create_packet(dg, True))

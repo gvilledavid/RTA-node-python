@@ -265,7 +265,7 @@ if __name__ == "__main__":
     q = queue.PriorityQueue(maxsize=3)
     x = parsers.parser.import_parsers()
     print(f"All parsers available: {x}")
-    p = x["PB840"].parser(tty="ttyAMA2", parent="123", txQueue=q)
+    p = x["PB840"].parser(tty="ttyAMA3", parent="123", txQueue=q)
     if p.validate_hardware():
         print("valid vent detected")
     p.loop_start()
