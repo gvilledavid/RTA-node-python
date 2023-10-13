@@ -17,7 +17,7 @@ class Intellivue:
         self.KeepAliveTime = 8
         self.successes = 0
         self.attempt_delay = 0.5
-        self.wait = 0.75
+        self.wait = 0.25
         self.send_freq = 10
         self.nonecount = 0
         # pulse info
@@ -56,6 +56,7 @@ class Intellivue:
 
         self._error_count = 0
         self._max_error_count = 20
+        self.state = 0
 
         dataCollectionTime = 72 * 60 * 60 * 2  # seconds
         dataCollection = {
@@ -142,7 +143,7 @@ class Intellivue:
         return l, rorls_type
 
     def setup(self, reattempt=False, reattempt_res=None):
-        self.idle = True
+        self.state = 1  # ready
         self.initial_connection_timout = 10
         self.initial_connection_attempt = time.monotonic()
         self.status = "DISCONNECTED"
@@ -154,7 +155,7 @@ class Intellivue:
                 self.ser.socket.flushInput()
                 self.ser.socket.flushOutput()
                 self.attempt_connection()
-                time.sleep(0.5)
+                time.sleep(0.1)
             else:
                 self.attempt_connection(
                     reattempt=reattempt, reattempt_res=reattempt_res
@@ -164,8 +165,8 @@ class Intellivue:
                 f"Detected:\n{self.manufacturer=}\n{self.DID=}\n{self.vent_type=}\n{self.bedlabel=}\n{self.mode=}\n{self.status=}"
             )
             self._error_count = 0
-            time.sleep(1)
-            self.idle = True
+            time.sleep(0.2)
+            self.state = 1  # ready
             self.logger.info("MDSExtendedPollActionNumeric")
             return True
         return False
@@ -307,8 +308,12 @@ class Intellivue:
                 self.logger.error("Exception while trying to receive")
                 break
         message_type = self.decoder.getMessageType(res)
-        if message_type == "TimeoutError" or not res or not message_type:
+        if (
+            message_type == "TimeoutError" or not res or not message_type
+        ) and self.state == 1:
             self._error_count = self._error_count + 1
+        elif self.state == 1:
+            self._error_count = 0
         self.logger.critical(
             f"{time.monotonic() - self.initiation_time:0.2f} {message_type}"
         )
@@ -323,10 +328,10 @@ class Intellivue:
                 self.ser.send(self.KeepAliveMessage)
                 self.last_keep_alive = time.monotonic()
                 self.logger.info("Sent KeepAliveMessage")
-            if self.idle:
+            if self.state == 1:
                 self.ser.send(self.MDSExtendedPollActionNumeric)
                 self.last_keep_alive = time.monotonic()
-                self.idle = False
+                self.state = 0  # not_ready
             res, message_type = self.receive()
             if self._error_count > self._max_error_count:
                 self.logger.critical(
@@ -389,7 +394,7 @@ class Intellivue:
                     self.make_packet(res)
                     self.vitals_dict = {}
                     self.debug_vitals = []
-                    self.idle = True
+                    self.state = 2  # waiting
                     pass
                 case "MDSSinglePollActionResult":
                     self.logger.info("Keep alive acknowledged")
@@ -409,6 +414,10 @@ class Intellivue:
     def test_run(self):
         while True:
             if self.connected:
+                if self.state >= 2:
+                    self.state = self.state + 1
+                if self.state > 10:
+                    self.state = 1
                 packet, err = self.poll()
                 if packet:
                     print("vitals topic:\n     " + self.vitals_topic)

@@ -43,8 +43,8 @@ class parser(parsers.parser.parser):
         }
         tty = self.interface.split("/")[-1]
         print(tty)
-        self._poll_freq = 0.2
-        self._send_freq = 10
+        self._poll_freq = 0.5
+        self._send_freq = 15
         self.logger.debug("Starting Intellivue")
         self.intellivue = Intellivue(
             ttyDEV=tty,
@@ -87,6 +87,9 @@ class parser(parsers.parser.parser):
 
     def poll(self):
         if self.intellivue.connected:
+            if time.monotonic() > (self._last_send + self._send_freq - 3.5):
+                if self.intellivue.state == 2:
+                    self.intellivue.state = 1
             packet, err = self.intellivue.poll()
             self.status = self.intellivue.mode
             if packet:
