@@ -242,9 +242,9 @@ class UARTLeafManager:
 
     def pulse(self):
         self._pulse["DID"] = self.parser.DID
-        self._pulse[
-            "VentType"
-        ] = self.parser.vent_type  # todo only use this if parser is valid
+        self._pulse["VentType"] = (
+            self.parser.vent_type if self.has_valid_parser else "NA"
+        )
         self._pulse["Baud"] = self.parser.baud  # last known good baud
         self._pulse["Protocol"] = self.parser.protocol
         self._pulse["DeviceStatus"] = self.device_status()
