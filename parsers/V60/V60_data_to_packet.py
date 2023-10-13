@@ -172,4 +172,4 @@ class V60_Packet_Creator:
                 False,
             )
         except:
-            return {"n": "v", "v": str(int(time.time() * 1000))}, {}, True
+            return {"n": "v", "v": str(int(time.time() * 1000))}, [], True
