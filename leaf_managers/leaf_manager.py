@@ -191,7 +191,7 @@ class UARTLeafManager:
                         self.logger.critical(
                             "The txQueue is full and a pulse message is lost."
                         )
-
+        self.destroy_parser()
         self.stopped = True
 
     def find_parser(self):
@@ -317,7 +317,12 @@ if __name__ == "__main__":
     leaf = UARTLeafManager("ttyAMA1", "123")
     leaf.loop_start()
     puls, vits = [time.time() * 1000, 0, 0], [time.time() * 1000, 0, 0]  # last,ct,avg
+    count = 0
+    start = time.monotonic()
+    lastt = start
+    loopexecutiontimes = []
     while True:
+        count += 1
         if leaf.txQueue.not_empty:
             m = leaf.txQueue.get()[1]
             print(f"Recieved {m}")
@@ -337,4 +342,18 @@ if __name__ == "__main__":
                 print(
                     f"**********Vitals: delta {(vits[0]-last)/1000}, avg {vits[2]/1000}"
                 )
-        time.sleep(0.5)
+        if count > 20:
+            print(f"uptime {time.monotonic()-start}")
+            break
+        else:
+            time.sleep(0.5)
+            now = time.monotonic()
+            print(f"loop execution {now-lastt}")
+            loopexecutiontimes.append(now - lastt)
+            lastt = now
+    try_to_kill = time.monotonic()
+    while not leaf.stopped:
+        leaf.loop_stop()
+    print(f"Took {time.monotonic()-try_to_kill} to shutdown")
+    print(loopexecutiontimes)
+    pass
