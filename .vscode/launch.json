@@ -13,6 +13,17 @@
             "python.formatting.provider": "black",
             "editor.formatOnSave": true,
             "justMyCode": true
+        },
+        {
+            "name": "Python root: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "c:\ProgramData\Microsoft\Windows\Start Menu\Programs\Python 3.9\Python 3.9 (64-bit).lnk",
+            "console": "integratedTerminal",
+            "python.formatting.provider": "black",
+            "editor.formatOnSave": true,
+            "sudo": true,
+            "justMyCode": true
         }
     ]
 }
