@@ -55,7 +55,7 @@ class parser(parsers.parser.parser):
 
         self.last_packet = {"last_time": time.time()}
         self.vitals_priority = 6
-        self.vitals_topic = f"Devices/vitals/{self.UID}"
+        self.vitals_topic = f"Devices/phys/{self.UID}"
         self.settings_priority = 7
         self.settings_topic = f"Devices/settings/{self.UID}"
         self.legacy_topic = f"Device/Vitals/{self.UID.replace(self.interface,'').strip(':').lower()}LeafMain1"
