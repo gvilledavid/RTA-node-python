@@ -305,6 +305,10 @@ class UARTLeafManager:
         self.response_topic = f"Devices/responses/{self.UID}"
         self.pulse_topic = f"Pulse/leafs/{self.UID}"
         self.pulse_freq = 30
+        self.unplugged_pulses_to_skip = 20
+        self._unplugged_pulses_skipped = (
+            self.unplugged_pulses_to_skip
+        )  # counter, set so that it will immediately send
         self._last_pulse_time = time.monotonic()
         self.hardware_status_file = f"/dev/piUART/status/{self.interface}"
         self.qos = 1
@@ -365,22 +369,26 @@ class UARTLeafManager:
                 if valid:
                     self.has_valid_parser = True
                     self.last_parser_name = self.parser_name
-                    nw=True
-                    tr=0
-                    if tr<3:
-                        tr=tr+1
+                    nw = True
+                    tr = 0
+                    if tr < 3:
+                        tr = tr + 1
                         try:
-                            with open(f"/usr/src/RTA/config/lastknown-{interface}.txt", 
-                                "w"
-                                ) as f:
+                            with open(
+                                f"/usr/src/RTA/config/lastknown-{interface}.txt", "w"
+                            ) as f:
                                 f.write(f"{self.parser_name}:{self.parser.baud}")
-                            nw=False
+                            nw = False
                         except FileNotFoundError:
                             os.mkdir("/usr/src/RTA/config/")
-                            self.logger.info("config directory not found, making it now at /usr/src/RTA/config/")
+                            self.logger.info(
+                                "config directory not found, making it now at /usr/src/RTA/config/"
+                            )
                         except:
-                            self.logger.info("Failed to write the detected configuration to the config folder.")
-                    
+                            self.logger.info(
+                                "Failed to write the detected configuration to the config folder."
+                            )
+
                     break
                 else:
                     self.destroy_parser()
@@ -389,6 +397,7 @@ class UARTLeafManager:
         if not self.has_valid_parser:
             self.parser_name = "GENERIC"
             self.last_parser_name = self.parser_name
+            self._unplugged_pulses_skipped = self.unplugged_pulses_to_skip
             self.parser = default_parser(
                 interface, parent=self.UID, txQueue=self.txQueue
             )
@@ -408,6 +417,7 @@ class UARTLeafManager:
         self.has_valid_parser = False
         if assign_generic:
             self.parser_name = "GENERIC"
+            self._unplugged_pulses_skipped = self.unplugged_pulses_to_skip
             self.parser = default_parser(
                 self.interface, parent=self.parent, txQueue=self.txQueue
             )
@@ -470,18 +480,28 @@ class UARTLeafManager:
                 elif cable_event:
                     self.destroy_parser()
                 if time.monotonic() > (self._last_pulse_time + self.pulse_freq):
-                    if not self.txQueue.full():
-                        try:
-                            # calls to full() do not guarantee space since the leaf may have written or acquired the lock
-                            # before the following .put gets called. In the event we try to put when the queue is full because
-                            # the leaf wrote the last slot, then put will block until there is space. If in addition to all this
-                            # there is a network issue happening and the queue is not emptying, then the program will freeze here forever.
-                            self.txQueue.put(self.pulsemsg(), timeout=1)
-                            self._last_pulse_time = time.monotonic()
-                        except queue.Full:
-                            self.logger.critical(
-                                "The txQueue is full and a pulse message is lost."
-                            )
+                    if (
+                        self.parser_name == "GENERIC"
+                        and self._unplugged_pulses_skipped
+                        < self.unplugged_pulses_to_skip
+                    ):
+                        self._unplugged_pulses_skipped = (
+                            1 + self._unplugged_pulses_skipped
+                        )
+                    else:
+                        self._unplugged_pulses_skipped = 0
+                        if not self.txQueue.full():
+                            try:
+                                # calls to full() do not guarantee space since the leaf may have written or acquired the lock
+                                # before the following .put gets called. In the event we try to put when the queue is full because
+                                # the leaf wrote the last slot, then put will block until there is space. If in addition to all this
+                                # there is a network issue happening and the queue is not emptying, then the program will freeze here forever.
+                                self.txQueue.put(self.pulsemsg(), timeout=1)
+                                self._last_pulse_time = time.monotonic()
+                            except queue.Full:
+                                self.logger.critical(
+                                    "The txQueue is full and a pulse message is lost."
+                                )
                 time.sleep(0.1)
             except Exception as e:
                 self.logger.critical(f"Exception has occured in main leaf loop: {e}")
@@ -523,6 +543,7 @@ class UARTLeafManager:
             self.destroy_parser(assign_generic=False)
         if not self.has_valid_parser:
             self.parser_name = "GENERIC"
+            self._unplugged_pulses_skipped = self.unplugged_pulses_to_skip
             self.parser = default_parser(
                 self.interface, parent=self.parent, txQueue=self.txQueue
             )

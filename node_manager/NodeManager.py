@@ -28,7 +28,7 @@ from tools.MQTT import MQTT, Message, get_mac
 
 class NodeManager:
     def __init__(self, brokerName):
-        #TODO ps aux and find abandoned leafprocessors, or even other nodes 
+        # TODO ps aux and find abandoned leafprocessors, or even other nodes
         # that are not you and kill them
         self.UID = get_mac("eth0")
         self.logger = RotatingLogger("NodeManager.log")
@@ -52,6 +52,8 @@ class NodeManager:
         self.command_topic = f"Devices/commands/{self.UID}"
         self.pulse_topic = f"Pulse/nodes/{self.UID}"
         self.subscription_topics = []
+        self.last_leaf_status = ""
+        self.detect_hw_change()
         # TODO: make the node store/generate the command topics and also store a list of what group
         # topics the leaf is connected to. Either a new command that goes through the pipe
         # or the node has to keep track of it. (and maybe store it to a file)
@@ -86,11 +88,20 @@ class NodeManager:
             if b.name == "Azure":
                 b.add_to_mask("Device/#")  # only publish to Device in Azure
                 b.add_to_mask("Pulse/#")
-        self.pulse_freq = 60
-        self.brief_freq = 10
+        self.pulse_freq = 120
+        self.brief_freq = 30
 
         self.running = True
         self.main_loop()
+
+    def detect_hw_change(self):
+        try:
+            stat = subprocess.check_output("cat /dev/piUART/status/*", shell=True)
+            stat = str(stat.replace(b"\n", b""))[2:-1]
+            self.last_leaf_status, stat = stat, (stat != self.last_leaf_status)
+        except:
+            stat = True
+        return stat
 
     def __del__(self):
         for leaf in self.leafs:
@@ -167,6 +178,7 @@ class NodeManager:
                                         topic=self.pulse_topic, payload=self.pulse.pulse
                                     ),
                                 )
+                            self.pulse.clear_flag()
                     self.last_pulse = time.monotonic()
                 elif not self.pulse.updating:
                     self.pulse.update()
@@ -182,8 +194,11 @@ class NodeManager:
                                     topic=self.pulse_topic, payload=self.pulse.brief
                                 ),
                             )
+                        self.pulse.clear_flag()
                 elif not self.pulse.updating:
                     self.pulse.brief_update()
+            elif self.detect_hw_change() and not self.pulse.updating:
+                self.pulse.update()
 
             for key, leaf in self.leafs.items():
                 if not leaf.proc_is_alive():

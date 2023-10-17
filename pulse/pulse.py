@@ -150,6 +150,12 @@ class pulse:
         self.t.start()
         return True
 
+    def clear_flag(self):
+        if self.dataready:
+            if not self.updating:
+                if not self.t.is_alive():
+                    self.dataready = False
+
     def isdatavalid(self):
         alive = True
         if self.dataready:
