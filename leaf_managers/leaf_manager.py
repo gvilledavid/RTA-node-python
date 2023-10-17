@@ -216,7 +216,7 @@ def LeafProcessorRunner(
                 leaf_pipe.send(state)
                 last_sent_state = state
                 leaf_transmit_queue.put((1, f"updated state to {state}"))
-
+            time.sleep(0.1)
         except Exception as e:
             running = False
             try:
@@ -325,6 +325,7 @@ class UARTLeafManager:
         self.rxQueue = queue.PriorityQueue(maxsize=1000)
         self.txQueue = queue.PriorityQueue(maxsize=1000)
         self.startup_pulse()
+        time.sleep(0.5)
         self.parser_list = import_parsers()
         self.has_valid_parser = False
         self.ordered_parser_list_keys = list(self.parser_list.keys())
@@ -488,6 +489,7 @@ class UARTLeafManager:
                         self._unplugged_pulses_skipped = (
                             1 + self._unplugged_pulses_skipped
                         )
+                        self._last_pulse_time = time.monotonic()
                     else:
                         self._unplugged_pulses_skipped = 0
                         if not self.txQueue.full():
@@ -502,7 +504,7 @@ class UARTLeafManager:
                                 self.logger.critical(
                                     "The txQueue is full and a pulse message is lost."
                                 )
-                time.sleep(0.1)
+                time.sleep(0.2)
             except Exception as e:
                 self.logger.critical(f"Exception has occured in main leaf loop: {e}")
                 self.running = False
@@ -572,7 +574,7 @@ class UARTLeafManager:
             "Timestamp": str(int(time.time() * 1000)),
         }
         self.txQueue.put(self.pulsemsg(pulsemsg), timeout=1)
-        self._last_pulse_time = time.monotonic() - 30
+        self._last_pulse_time = time.monotonic() - self.pulse_freq + 1
 
     def init_pulse(self):
         self._pulse = {}
