@@ -11,8 +11,8 @@ sys.path.append(
     os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 )  # add RTA-node-python to path
 
-# from leaf_managers.leaf_manager import UARTLeafManager
-# from tools.MQTT import Message, get_mac
+from leaf_managers.leaf_manager import UARTLeafManager
+from tools.MQTT import Message, get_mac
 
 
 class LeafProcessorCommands(IntEnum):
@@ -134,7 +134,7 @@ class LeafProcessor:
 def LeafProcessorRunner(
     name, parent, node_transmit_queue, leaf_transmit_queue, leaf_pipe
 ):
-    leaf = fake_leaf(name, parent)
+    leaf = UARTLeafManager(name, parent)
     running = True
     stopped = False
     node_desired_run_state = True
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     # the goal is to start multiple fake_leafs in processes,
     # send data randomly to the leafs, and read data that comes back
 
-    leaf = LeafProcessor("ttyAMA1", "123")
+    leaf = LeafProcessor("ttyAMA1", get_mac("eth0"))
     last_state = leaf.state()
 
     """poll:
@@ -358,7 +358,9 @@ if __name__ == "__main__":
                     print(f"sending join command to {leaf.name}")
                     leaf.join()
                 case _:
-                    print("Commands *H*elp, *T*ransmit, *S*tart, sto*P*, *E*cho, *J*oin")
+                    print(
+                        "Commands *H*elp, *T*ransmit, *S*tart, sto*P*, *E*cho, *J*oin"
+                    )
 
     except Exception as e:
         leaf.stop()

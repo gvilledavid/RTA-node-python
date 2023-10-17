@@ -5,6 +5,9 @@ import queue
 import importlib
 import serial
 import json
+import multiprocessing
+import random
+from enum import IntEnum, auto
 
 # local includes
 sys.path.append(
@@ -12,10 +15,281 @@ sys.path.append(
 )  # add RTA-node-python to path
 from tools.RotatingLogger import RotatingLogger
 from parsers.parser import example_parser, default_parser
-from tools.MQTT import Message
+from tools.MQTT import Message, MQTTMessage
 from parsers.parser import import_parsers
 
 # todo: Every non specific exception catch needs to call Exception as e and log that
+
+
+class LeafProcessorCommands(IntEnum):
+    START = auto()
+    STOP = auto()
+    TERM = auto()
+    ECHO = auto()
+
+
+class LeafProcessorStates(IntEnum):
+    RUNNING = auto()
+    STOPPING = auto()
+    STOPPED = auto()
+    DEAD = auto()
+
+
+# todo, integrate this interface to the UARTLeafManager instead?
+# we need to rework
+class LeafProcessor:
+    def __init__(self, connection_type, name, parent):
+        self.name = name
+        self.parent = parent
+        self.connection_type = connection_type
+        self.context = multiprocessing.get_context("spawn")
+        self.node_transmit_queue = self.context.Queue()
+        self.leaf_transmit_queue = self.context.Queue()
+        self.command_state_pipe_node, self.command_state_pipe_leaf = self.context.Pipe()
+        self.last_state = LeafProcessorStates.STOPPED
+        self.processor = self.context.Process(
+            target=LeafProcessorRunner,
+            args=(
+                self.connection_type,
+                self.name,
+                self.parent,
+                self.node_transmit_queue,
+                self.leaf_transmit_queue,
+                self.command_state_pipe_leaf,
+            ),
+        )
+        time.sleep(1)
+        self.processor.start()
+        time.sleep(1)
+        self.pid = self.processor.pid
+        print(self.pid)
+
+    def proc_is_alive(self):
+        return self.processor.is_alive()
+
+    def runner_is_alive(self):
+        self.state()
+        return self.proc_is_alive() and self.last_state != LeafProcessorStates.DEAD
+
+    def transmit(self, message_tuple):
+        if not self.node_transmit_queue.full():
+            try:
+                self.node_transmit_queue.put_nowait(message_tuple)
+            except queue.Full:
+                return False
+            return True
+        else:
+            return False
+
+    def recieve(self):
+        if not self.leaf_transmit_queue.empty():
+            try:
+                return self.leaf_transmit_queue.get()
+            except queue.Empty:
+                pass
+        else:
+            return None
+
+    def full(self):
+        return self.node_transmit_queue.full()
+
+    def empty(self):
+        return self.leaf_transmit_queue.empty()
+
+    def recQsize(self):
+        return self.leaf_transmit_queue.qsize()
+
+    def transQsize(self):
+        return self.node_transmit_queue.qsize()
+
+    def start(self):
+        try:
+            self.command_state_pipe_node.send(LeafProcessorCommands.START)
+        except ValueError:
+            pass
+            # object not  picklable
+        # except full?
+
+    def stop(self):
+        self.command_state_pipe_node.send(LeafProcessorCommands.STOP)
+
+    def state(self):
+        if not self.proc_is_alive():
+            self.last_state = LeafProcessorStates.DEAD
+            return self.last_state
+        if self.command_state_pipe_node.poll(0.01):
+            while self.command_state_pipe_node.poll(0.01):
+                try:
+                    state = self.command_state_pipe_node.recv()  # empty pipe
+                    self.last_state = state
+                except EOFError:
+                    pass  # no more data
+                return state
+        else:
+            self.command_state_pipe_node.send(LeafProcessorCommands.ECHO)
+            return self.last_state
+
+    def echo(self):
+        self.command_state_pipe_node.send(LeafProcessorCommands.ECHO)
+
+    def join(self, timeout=None):
+        t = time.monotonic()
+        self.command_state_pipe_node.send(LeafProcessorCommands.TERM)
+        if timeout:
+            st = time.monotonic()
+            timeout = st + timeout
+        while True:
+            if self.state() == LeafProcessorStates.DEAD:
+                break
+            if timeout and (time.monotonic() > timeout):
+                break
+            time.sleep(0.1)
+        self.processor.join(0.1)
+        print(f"{self.name}.join() Executed {time.monotonic()-t} seconds")
+        return self.processor.is_alive()
+
+
+def LeafProcessorRunner(
+    connection_type, name, parent, node_transmit_queue, leaf_transmit_queue, leaf_pipe
+):
+    match connection_type.upper():
+        case "UART":
+            leaf = UARTLeafManager(name, parent)
+        case "USB":
+            leaf = UARTLeafManager(name, parent)
+        case "BT":
+            raise NotImplementedError
+        case "WIFI":
+            raise NotImplementedError
+        case _:
+            raise NotImplementedError
+    # todo add logging here
+    running = True
+    stopped = False
+    node_desired_run_state = True
+    state = LeafProcessorStates.RUNNING
+    leaf_pipe.send(state)
+    last_sent_state = state
+    while running:
+        try:
+            # check leaf messages and relay to node
+            if not leaf.txQueue.empty():
+                while not leaf.txQueue.empty():
+                    m = leaf.txQueue.get()  # todo, catch queue exceptions
+                    leaf_transmit_queue.put(m)
+            # check node messages and relay to leaf
+            if not node_transmit_queue.empty():
+                while not node_transmit_queue.empty():
+                    leaf.rxQueue.put(node_transmit_queue.get())
+            # check for node commands
+            if leaf_pipe.poll(0.01):
+                comm = leaf_pipe.recv()
+                match comm:
+                    case LeafProcessorCommands.ECHO:
+                        leaf_pipe.send(state)
+                        last_sent_state = state
+                    case LeafProcessorCommands.START:
+                        node_desired_run_state = True
+                    case LeafProcessorCommands.STOP:
+                        node_desired_run_state = False
+                    case LeafProcessorCommands.TERM:
+                        running = False
+                        node_desired_run_state = False
+                        leaf.loop_stop()
+                        leaf_transmit_queue.put((1, "Accepted term command"))
+            # check if leaf needs to be started or stopped
+            if node_desired_run_state and state != LeafProcessorStates.RUNNING:
+                leaf.loop_start()
+                leaf_transmit_queue.put((1, "Accepted start command"))
+            elif not node_desired_run_state and state == LeafProcessorStates.RUNNING:
+                leaf.loop_stop()
+                leaf_transmit_queue.put((1, "Accepted stop command"))
+            # update leaf state
+            if leaf.running:
+                state = LeafProcessorStates.RUNNING
+            elif not leaf.running and not leaf.stopped:
+                state = LeafProcessorStates.STOPPING
+            elif not leaf.running and leaf.stopped:
+                state = LeafProcessorStates.STOPPED
+            # send state on changes
+            if state != last_sent_state:
+                leaf_pipe.send(state)
+                last_sent_state = state
+                leaf_transmit_queue.put((1, f"updated state to {state}"))
+
+        except Exception as e:
+            running = False
+            try:
+                ct = 0
+                tMAX = 50
+                while not leaf.stopped:
+                    ct += 1
+                    time.sleep(0.1)
+                    if ct > tMAX:
+                        break
+                    leaf.loop_stop()
+            except:
+                pass
+    leaf_pipe.send(LeafProcessorStates.DEAD)
+
+
+class fake_leaf:
+    def __init__(self, name, parent):
+        self.number = random.random() * 5
+        self.name = name
+        self.rxQueue = queue.PriorityQueue(maxsize=1000)
+        self.txQueue = queue.PriorityQueue(maxsize=1000)
+        self.running = False
+        self.stopped = True
+        self.runner = None
+        self.loop_start()
+
+    def loop_start(self):
+        if not self.running and self.stopped:
+            self.running = True
+            self.stopped = False
+            self.runner = threading.Thread(target=self.loop_runner, args=())
+            self.runner.start()
+
+    def loop_stop(self):
+        self.running = False
+        ct = 0
+        tMAX = 10
+        while not self.stopped:
+            ct += 1
+            time.sleep(0.1)
+            if ct > tMAX:
+                break
+
+    def loop_runner(self):
+        # add flags, exception handling
+        lastsend = 0
+        while self.running:
+            if time.monotonic() > (lastsend + self.number):
+                try:
+                    self.txQueue.put_nowait(
+                        (
+                            1,
+                            f"{self.name}({self.number}) last: {time.monotonic()-lastsend}",
+                        )
+                    )
+                    lastsend = time.monotonic()
+                except queue.Full:
+                    pass
+            while not self.rxQueue.empty():
+                try:
+                    self.txQueue.put_nowait(
+                        (
+                            1,
+                            f" {self.name} recieved {self.rxQueue.get_nowait()} at {time.monotonic()}",
+                        )
+                    )
+                except queue.Full:
+                    pass
+                except queue.Empty:
+                    pass
+            time.sleep(0.1)
+        self.stopped = True
 
 
 class UARTLeafManager:
@@ -46,6 +320,7 @@ class UARTLeafManager:
         self.stopped = True
         self.rxQueue = queue.PriorityQueue(maxsize=1000)
         self.txQueue = queue.PriorityQueue(maxsize=1000)
+        self.startup_pulse()
         self.parser_list = import_parsers()
         self.has_valid_parser = False
         self.ordered_parser_list_keys = list(self.parser_list.keys())
@@ -106,7 +381,7 @@ class UARTLeafManager:
                 interface, parent=self.UID, txQueue=self.txQueue
             )
         self.init_pulse()
-        leaf.loop_start()
+        self.loop_start()
 
     def destroy_parser(self, assign_generic=True):
         try:
@@ -252,6 +527,20 @@ class UARTLeafManager:
         # 1,1 : invalid error condition
         return self.runner.is_alive()
 
+    def startup_pulse(self):
+        pulsemsg = {
+            "UID": self.UID,
+            "ParentNode": self.parent,
+            "DID": "Not acquired yet",
+            "VentType": "NA",
+            "Baud": 0,
+            "Protocol": "Not acquired yet",
+            "DeviceStatus": "INITIALIZING",
+            "Timestamp": str(int(time.time() * 1000)),
+        }
+        self.txQueue.put(self.pulsemsg(pulsemsg), timeout=1)
+        self._last_pulse_time = time.monotonic() - 30
+
     def init_pulse(self):
         self._pulse = {}
         self._pulse["UID"] = self.UID
@@ -279,13 +568,19 @@ class UARTLeafManager:
             self._pulse.pop("MDSstatus", None)
             self._pulse.pop("MDSmode", None)
 
-    def pulsemsg(self):
-        self.pulse()
+    def pulsemsg(self, override=None):
+        if not override:
+            self.pulse()
+            payload = json.dumps(self._pulse)
+        # elif isinstance(override,tuple)
+        # elif string
+        elif isinstance(override, dict):
+            payload = json.dumps(override)
+        else:
+            payload = str(override)
         return (
             3,
-            Message(
-                topic=self.pulse_topic, payload=json.dumps(self._pulse), qos=self.qos
-            ),
+            Message(topic=self.pulse_topic, payload=payload, qos=self.qos),
         )
 
     def device_status(self):
@@ -307,6 +602,35 @@ class UARTLeafManager:
             except Exception as e:
                 hw_status = "?"
         return ret
+
+    def txempty(self):
+        return not self.txQueue.not_empty
+
+    def rxfull(self):
+        return self.rxQueue.full()
+
+    def get(self):
+        try:
+            return self.txQueue.get_nowait()
+        except queue.Empty:
+            return (None, None)
+
+    def put(self, message, priority=None):
+        if priority and isinstance(message, tuple):
+            message[0] = priority
+        elif priority and isinstance(message, (MQTTMessage, Message)):
+            message = (priority, message)
+        elif not priority and isinstance(message, tuple):
+            pass
+        elif not priority and isinstance(message, (MQTTMessage, Message)):
+            message = (5, message)
+        else:
+            return False
+        try:
+            self.rxQueue.put_nowait(message)
+            return True
+        except queue.Full:
+            return False
 
     def loop_stop(self):
         self.running = False
@@ -341,34 +665,36 @@ if __name__ == "__main__":
     loopexecutiontimes = []
     while True:
         count += 1
-        if leaf.txQueue.not_empty:
-            m = leaf.txQueue.get()[1]
-            print(f"Recieved {m}")
-            if m.topic[0] == "P":
-                last = puls[0]
-                puls[0] = int(m.dict()["Timestamp"])
-                puls[1] = puls[1] + 1
-                puls[2] = (puls[2] * (puls[1] - 1) + (puls[0] - last)) / puls[1]
-                print(
-                    f"**********Pulse : delta {(puls[0]-last)/1000}, avg {puls[2]/1000}"
-                )
-            if m.topic[0] == "D":
-                last = vits[0]
-                vits[0] = int(m.dict()["Timestamp"])
-                vits[1] = vits[1] + 1
-                vits[2] = (vits[2] * (vits[1] - 1) + (vits[0] - last)) / vits[1]
-                print(
-                    f"**********Vitals: delta {(vits[0]-last)/1000}, avg {vits[2]/1000}"
-                )
-        if count > 20:
-            print(f"uptime {time.monotonic()-start}")
-            break
-        else:
-            time.sleep(0.5)
-            now = time.monotonic()
-            print(f"loop execution {now-lastt}")
-            loopexecutiontimes.append(now - lastt)
-            lastt = now
+        if not leaf.txempty():
+            _, message = leaf.get()
+            if message:
+                m = message
+                print(f"Recieved {m}")
+                if m.topic[0] == "P":
+                    last = puls[0]
+                    puls[0] = int(m.dict()["Timestamp"])
+                    puls[1] = puls[1] + 1
+                    puls[2] = (puls[2] * (puls[1] - 1) + (puls[0] - last)) / puls[1]
+                    print(
+                        f"**********Pulse : delta {(puls[0]-last)/1000}, avg {puls[2]/1000}"
+                    )
+                if m.topic[0] == "D":
+                    last = vits[0]
+                    vits[0] = int(m.dict()["Timestamp"])
+                    vits[1] = vits[1] + 1
+                    vits[2] = (vits[2] * (vits[1] - 1) + (vits[0] - last)) / vits[1]
+                    print(
+                        f"**********Vitals: delta {(vits[0]-last)/1000}, avg {vits[2]/1000}"
+                    )
+        # if count > 20:
+        # print(f"uptime {time.monotonic()-start}")
+        # break
+        # else:
+        time.sleep(0.5)
+        now = time.monotonic()
+        print(f"loop execution {now-lastt}")
+        loopexecutiontimes.append(now - lastt)
+        lastt = now
     try_to_kill = time.monotonic()
     while not leaf.stopped:
         leaf.loop_stop()

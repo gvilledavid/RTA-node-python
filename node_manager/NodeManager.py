@@ -1,6 +1,7 @@
+import paho.mqtt.client as mqtt
+
 import random
 import time
-import paho.mqtt.client as mqtt
 import ssl
 import json
 import traceback
@@ -14,11 +15,14 @@ import platform
 sys.path.append(
     os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 )  # add RTA-node-python to path
+
+from leaf_managers.leaf_manager import LeafProcessorStates
+from leaf_managers.leaf_manager import LeafProcessorCommands
+from leaf_managers.leaf_manager import LeafProcessor
+from pulse.pulse import pulse, fake_windows_pulse
 from tools.RotatingLogger import RotatingLogger
 from tools.get_secrets import get_secrets
-from pulse.pulse import pulse, fake_windows_pulse
 from tools.miamihosts import get_Miami_Hostname
-from leaf_managers.leaf_manager import UARTLeafManager
 from tools.MQTT import MQTT, Message, get_mac
 
 
@@ -27,22 +31,31 @@ class NodeManager:
         self.UID = get_mac("eth0")
         self.logger = RotatingLogger("NodeManager.log")
         self.leafs = {}
-        for tty in self.detect_hardware():
-            try:
-                self.leafs[tty] = UARTLeafManager(tty, self.UID)
-                self.leafs[tty].loop_start()
-            except Exception as e:
-                self.logger.critical(f"Failed to start LeafManager for {tty}: \n{e}")
+        for connection_type, array_of_connections in self.detect_hardware().items():
+            for connection in array_of_connections:
+                try:
+                    reference = f"{connection_type}_{connection}"
+                    self.logger.critical(f"Starting LeafProcessor for {reference}.")
+                    self.leafs[reference] = LeafProcessor(
+                        connection_type, connection, self.UID
+                    )
+                except Exception as e:
+                    self.logger.critical(
+                        f"Failed to start LeafManager for {reference}: \n{e}"
+                    )
         # topic stuff
         self.qos = 1
         self.priority = 5
         self.status_topic = f"Pulse/nodes/status/{self.UID}"
         self.command_topic = f"Devices/commands/{self.UID}"
         self.pulse_topic = f"Pulse/nodes/{self.UID}"
-        self.subscription_topics = [
-            (commands, self.qos)
+        self.subscription_topics = []
+        # TODO: make the node store/generate the command topics and also store a list of what group
+        # topics the leaf is connected to. Either a new command that goes through the pipe
+        # or the node has to keep track of it. (and maybe store it to a file)
+        """[    (commands, self.qos)
             for commands in [self.leafs[leaf].command_topic for leaf in self.leafs]
-        ]
+        ]"""
         self.subscription_topics.append((self.command_topic, self.qos))
         if platform.system() == "Windows":
             self.pulse = fake_windows_pulse()
@@ -79,19 +92,20 @@ class NodeManager:
 
     def __del__(self):
         for leaf in self.leafs:
-            leaf.loop_stop()
-
+            leaf.join()
+        # todo empty the queues and send?
         for b in self.brokers:
             b.shutdown()
         self.logger.shutdown()
 
     def detect_hardware(self):
         # todo load HW.conf for this version?
+        # {"UART":[], "BT":[],etc}
         try:
             ttyStatus = subprocess.check_output("ls /dev/piUART/status", shell=True)
-            return str(ttyStatus)[2:-3].split("\\n")
+            return {"UART": str(ttyStatus)[2:-3].split("\\n")}
         except:
-            return ["ttyAMA1", "ttyAMA2", "ttyAMA3", "ttyAMA4"]
+            return {"UART": ["ttyAMA1", "ttyAMA2", "ttyAMA3", "ttyAMA4"]}
 
     def process_commands(self):
         # send_pulse
@@ -103,6 +117,28 @@ class NodeManager:
         # hostname update
         # req_id
         pass
+        command_type = None
+        leaf = None
+        match command_type:
+            case "t":
+                packet = (5, Message(topic="", payload=""))
+                leaf.transmit(packet)
+            case "s":
+                leaf.start()
+            case "p":
+                leaf.stop()
+            case "e":
+                leaf.echo()
+            case "j":
+                leaf.join()
+            case "system_update":
+                pass
+            case "node_update":
+                pass
+            case "shutdown":
+                pass
+            case "restart":
+                pass
 
     def main_loop(self):
         self.last_pulse = 0
@@ -147,15 +183,19 @@ class NodeManager:
                 elif not self.pulse.updating:
                     self.pulse.brief_update()
 
-            for leaf in self.leafs:
-                if not self.leafs[leaf].is_alive():
-                    pass
-                    # TODO: check why it died and restart
+            for key, leaf in self.leafs.items():
+                if not leaf.proc_is_alive():
+                    connection_type = leaf.connection_type
+                    name = leaf.name
+                    del self.leafs[key]
+                    self.leafs[key] = LeafProcessor(connection_type, name, self.UID)
+                elif not leaf.runner_is_alive():
+                    leaf.start()
                 else:
-                    while self.leafs[leaf].txQueue.not_empty:
+                    while not leaf.empty():
                         try:
-                            priority, msg = self.leafs[leaf].txQueue.get()
-                            # using msg.topic, decide if it is an action you can act on
+                            priority, msg = leaf.recieve()
+                            # TODO: using msg.topic, decide if it is an action you can act on
                             print(msg)
                             for b in self.brokers:
                                 b.put(self.priority, msg)
