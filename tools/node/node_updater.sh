@@ -55,6 +55,11 @@ echo "Changing ownership of directories"
 chown -R ubuntu:ubuntu /usr/src/RTA
 chown ubuntu:ubuntu /usr/src/RTA/*
 
+#install requirements using python requirements.txt that we should include somewhere in the repo
+# for now:
+sudo -H -u ubuntu pip install numpy
+sudo -H -u ubuntu pip install debugpy
+
 sleep 10
 echo "Starting NodeManager..."
 #/bin/bash /usr/src/RTA/node/node_start.sh

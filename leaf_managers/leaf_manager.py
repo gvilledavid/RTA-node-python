@@ -365,10 +365,22 @@ class UARTLeafManager:
                 if valid:
                     self.has_valid_parser = True
                     self.last_parser_name = self.parser_name
-                    with open(
-                        f"/usr/src/RTA/config/lastknown-{interface}.txt", "w"
-                    ) as f:
-                        f.write(f"{self.parser_name}:{self.parser.baud}")
+                    nw=True
+                    tr=0
+                    if tr<3:
+                        tr=tr+1
+                        try:
+                            with open(f"/usr/src/RTA/config/lastknown-{interface}.txt", 
+                                "w"
+                                ) as f:
+                                f.write(f"{self.parser_name}:{self.parser.baud}")
+                            nw=False
+                        except FileNotFoundError:
+                            os.mkdir("/usr/src/RTA/config/")
+                            self.logger.info("config directory not found, making it now at /usr/src/RTA/config/")
+                        except:
+                            self.logger.info("Failed to write the detected configuration to the config folder.")
+                    
                     break
                 else:
                     self.destroy_parser()

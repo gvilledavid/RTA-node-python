@@ -28,6 +28,8 @@ from tools.MQTT import MQTT, Message, get_mac
 
 class NodeManager:
     def __init__(self, brokerName):
+        #TODO ps aux and find abandoned leafprocessors, or even other nodes 
+        # that are not you and kill them
         self.UID = get_mac("eth0")
         self.logger = RotatingLogger("NodeManager.log")
         self.leafs = {}
