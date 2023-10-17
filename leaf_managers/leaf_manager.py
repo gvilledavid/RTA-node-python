@@ -574,7 +574,7 @@ class UARTLeafManager:
             "Timestamp": str(int(time.time() * 1000)),
         }
         self.txQueue.put(self.pulsemsg(pulsemsg), timeout=1)
-        self._last_pulse_time = time.monotonic() - self.pulse_freq + 1
+        self._last_pulse_time = time.monotonic() - self.pulse_freq + 10
 
     def init_pulse(self):
         self._pulse = {}
@@ -604,7 +604,9 @@ class UARTLeafManager:
             self._pulse.pop("MDSmode", None)
 
     def pulsemsg(self, override=None):
+        priority_override=2
         if not override:
+            priority_override=3
             self.pulse()
             payload = json.dumps(self._pulse)
         # elif isinstance(override,tuple)
@@ -614,7 +616,7 @@ class UARTLeafManager:
         else:
             payload = str(override)
         return (
-            3,
+            priority_override,
             Message(topic=self.pulse_topic, payload=payload, qos=self.qos),
         )
 
