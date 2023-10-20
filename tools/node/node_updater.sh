@@ -32,13 +32,9 @@ echo "Using github branch $BRANCH"
 
 git clone --branch $BRANCH "$(cat /usr/local/share/.secrets/git.store)"/Convergent-Engineering/RTA-node-python.git
 echo "Moving /usr/src/RTA/node scripts"
+mkdir -p /usr/src/RTA/node/
 mv -f /usr/src/RTA/RTA-node-python/tools/node/* /usr/src/RTA/node/.
-chmod +777 /usr/src/RTA/node/node_updater.sh
-chmod +777 /usr/src/RTA/node/start.sh
-chmod +777 /usr/src/RTA/node/pulse.sh
-chmod +777 /usr/src/RTA/node/node_start.sh
-chmod +777 /usr/src/RTA/node/gpiostat.sh
-chmod +777 /usr/src/RTA/node/system_updater.sh
+chmod +777 /usr/src/RTA/node/*.sh
 
 echo "Moving startup drivers"
 #mkdir -p /usr/src/RTA/uart_driver
