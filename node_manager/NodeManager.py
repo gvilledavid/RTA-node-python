@@ -48,7 +48,7 @@ class NodeManager:
         # topic stuff
         self.qos = 1
         self.priority = 5
-        self.status_topic = f"Pulse/nodes/status/{self.UID}"
+        self.status_topic = f"Status/lwt/{self.UID}"
         self.command_topic = f"Devices/commands/{self.UID}"
         self.pulse_topic = f"Pulse/nodes/{self.UID}"
         self.subscription_topics = []
