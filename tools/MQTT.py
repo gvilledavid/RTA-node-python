@@ -130,7 +130,7 @@ class MQTT:
         self.name = brokerName
         # topic stuff
         self.subscription_topics = sublist
-        self.status_topic = f"Pulse/nodes/status/{self.UID}"
+        self.status_topic = f"Status/lwt/{self.UID}"
         # queues
         # These queues define the MQTt-Node connection from this library's point of view
         #   tx is the transmit to node queue, it is for recieved broker messages that are forwarded to the Node

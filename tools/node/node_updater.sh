@@ -56,6 +56,10 @@ echo "Changing ownership of directories"
 chown -R ubuntu:ubuntu /usr/src/RTA
 chown ubuntu:ubuntu /usr/src/RTA/*
 
+#restart heartbeat backup
+kill -9 $(cat /usr/src/RTA/node/pid.file)
+sudo -H -u ubuntu bash -c /usr/src/RTA/node/start.sh
+
 #install requirements using python requirements.txt that we should include somewhere in the repo
 # for now:
 sudo -H -u ubuntu pip install numpy
@@ -122,3 +126,6 @@ echo "Done"
 echo "PID of NodeManager: $(cat /usr/src/RTA/node/node_pid.file)"
 echo "PID of Uart Driver: $(cat /usr/src/RTA/uart_driver/pid.file)"
 echo "PID of Commands Driver: $(cat /usr/src/RTA/commands_driver/pid.file)"
+
+#update and restart, should be off by default and have an option in the future
+sudo /usr/src/RTA/node/system_updater.sh
