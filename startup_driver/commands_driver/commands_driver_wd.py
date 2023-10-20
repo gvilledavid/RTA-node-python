@@ -31,7 +31,7 @@ commands = {
     "update": {
         "default": "echo 0",
         "change-to": "1",
-        "cmd": "sudo DEBIAN_FRONTEND=noninteractive apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
+        "cmd": "sudo /usr/src/RTA/node/system_updater.sh",
         "response": "",
         "response-index": -1,
     },

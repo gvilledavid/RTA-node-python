@@ -38,6 +38,7 @@ chmod +777 /usr/src/RTA/node/start.sh
 chmod +777 /usr/src/RTA/node/pulse.sh
 chmod +777 /usr/src/RTA/node/node_start.sh
 chmod +777 /usr/src/RTA/node/gpiostat.sh
+chmod +777 /usr/src/RTA/node/system_updater.sh
 
 echo "Moving startup drivers"
 #mkdir -p /usr/src/RTA/uart_driver
