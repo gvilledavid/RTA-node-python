@@ -60,6 +60,7 @@ sudo -H -u ubuntu bash -c /usr/src/RTA/node/start.sh
 # for now:
 sudo -H -u ubuntu pip install numpy
 sudo -H -u ubuntu pip install debugpy
+sudo -H -u ubuntu pip install paho_mqtt
 
 sleep 10
 echo "Starting NodeManager..."
