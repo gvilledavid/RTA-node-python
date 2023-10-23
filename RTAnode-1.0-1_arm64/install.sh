@@ -63,3 +63,7 @@ cd /usr/src/RTA/
 git clone --branch test "$(cat /usr/local/share/.secrets/git.store)"/Convergent-Engineering/RTA-node-python.git
 sudo chmod +x /usr/src/RTA/RTA-node-python/tools/node/node_updater.sh
 sudo /usr/src/RTA/RTA-node-python/tools/node/node_updater.sh
+
+#configure initial hostname
+sudo pip install paho-mqtt
+sudo python3 /usr/src/RTA/RTA-node-python/tools/miamihosts.py
