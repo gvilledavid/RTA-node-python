@@ -119,22 +119,14 @@ class PB840_Packet_Creator:
         res.append({"n": "AnyAlarmActive", "v": str(AnyAlarmActive)})
 
     def create_alarms_packet(self, raw, verbose=False):
-        alarms = []
+        alarms = {"AnyAlarmsActive": 0}
         for field in raw:
             if field[0] in self.EXTENDED_ALARMS:
-                if verbose or field[1] != "NORMAL":
-                    alarm = self.EXTENDED_ALARMS.get(
-                        field[0], {"message": "Unknown alarm", "Priority": 1}
-                    )
-                    alarms.append(
-                        {
-                            "message": alarm["message"],
-                            "Priority": alarm["Priority"],
-                            "status": field[1],
-                            "vent-code": field[0],
-                            "Time": str(int(time.time() * 1000)),
-                        }
-                    )
+                if field[1] != "NORMAL" or field[1] != "RESET":
+                    alarms["AnyAlarmsActive"] = 1
+                    alarm = self.EXTENDED_ALARMS.get(field[0], None)
+                    if alarm:
+                        alarms[alarm] = 1
         return alarms
 
     def create_packet(self, data, debug=False):

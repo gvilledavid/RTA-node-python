@@ -39,6 +39,8 @@ PB840_WEB_STRINGS = {
     102: "NIF",
 }
 PB980_WEB_STRINGS = {161: "PB980_ETCO2"}
+
+"""
 BOTH_ALARMS_SNDF = {
     106: {"message": "Apnea ventilation alarm", "Priority": 2},
     107: {"message": "High exhaled minute volume alarm", "Priority": 2},
@@ -98,6 +100,66 @@ PB980_ALARMS_SNDF = {
     153: {"message": "High ETCO2 Alarm", "Priority": 2},
     160: {"message": "Prox Inop alarm", "Priority": 2},
 }
+
+"""
+
+BOTH_ALARMS_SNDF = {
+    106: "Apnea",  # 	Apnea ventilation alarm
+    107: "MVeHigh",  # 	High exhaled minute volume alarm
+    108: "VTeHigh",  # 	High exhaled tidal volume alarm
+    109: "Generic",  # 		High O2\% alarm
+    110: "PIPHigh",  # 	High inspiratory pressure alarm
+    111: "Generic",  # 		High ventilator pressure alarm
+    112: "FtotHigh",  # 	High respiratory rate alarm
+    113: "MiscHW",  # 	AC power loss alarm
+    114: "MiscHW",  # 	Inoperative battery alarm
+    115: "MiscHW",  # 	Low battery alarm
+    116: "MiscHW",  # 	Inadvertent Power Off alarm
+    117: "VTEeLow",  # 	Low exhaled mandatory tidal volume alarm
+    118: "MVeLow",  # 	Low exhaled minute volume alarm
+    119: "VTEeLow",  # 	Low exhaled spontaneous tidal volume alar
+    120: "MiscHW",  # 	Low O2\% alarm
+    121: "MiscHW",  # 	Low air supply pressure alarm
+    122: "MiscHW",  # 	Low O2 supply pressure alarm
+    123: "MiscHW",  # 	Compressor inoperative alarm
+    124: "Disconnect",  # 	Disconnect alarm
+    125: "Occlusion",  # 	Severe occlusion alarm
+    126: "Generic",  # 		Inspiration too long alarm
+    127: "Generic",  # 		Procedure error alarm
+    128: "Generic",  # 		Compliance limited tidal volume (VT) alarm
+    129: "Generic",  # 		High inspired tidal volume
+    130: "Generic",  # 		High inspired tidal volume
+    131: "Generic",  # 		High compensation limit (1PCOMP) alarm
+    132: "Generic",  # 		PAV+™ startup too long alarm
+    133: "Generic",  # 		PAV+™ R and C not assessed alarm
+    134: "Generic",  # 		Volume not delivered (VC+) alarm
+    135: "Generic",  # 		Volume not delivered (VS) alarm
+    136: "PIPLow",  # 	Low inspiratory pressure (PPEAK) alarm
+    137: "MiscHW",  # 	Technical malfunction A5
+    138: "MiscHW",  # 	Technical malfunction A10
+    139: "MiscHW",  # 	Technical malfunction A15
+    140: "MiscHW",  # 	Technical malfunction A20
+    141: "MiscHW",  # 	Technical malfunction A25
+    142: "MiscHW",  # 	Technical malfunction A30
+    143: "MiscHW",  # 	Technical malfunction A35
+    144: "MiscHW",  # 	Technical malfunction A40
+    145: "MiscHW",  # 	Technical malfunction A45
+    146: "MiscHW",  # 	Technical malfunction A50
+    147: "MiscHW",  # 	Technical malfunction A55
+    148: "MiscHW",  # 	Technical malfunction A60
+    149: "MiscHW",  # 	Technical malfunction A65
+    150: "MiscHW",  # 	Technical malfunction A70
+    151: "MiscHW",  # 	Technical malfunction A75
+    152: "MiscHW",  # 	Technical malfunction A80
+}
+PB840_ALARMS_SNDF = {
+    153: "MiscHW",
+}
+PB980_ALARMS_SNDF = {
+    153: "Generic",
+    160: "MiscHW",
+}
+
 
 # For producing the proper mode string
 MODEMAP = {
