@@ -36,13 +36,13 @@ class PB840_Packet_Creator:
         """Create list of [field ID, value] from the PB840 datagram"""
         # TODO, Remove unimportant fields
         # -5 for access
-        print(data)
+        #print(data)
         header, fields_b = data.split(b",\x02")
         miscf, n_chars, n_fields = header.decode().split(",")
         fields_b = fields_b.replace(b"\x03\r", b"")
         fields = [i.strip() for i in fields_b.decode().split(",")[:-1]]
-        print(f"checksums = {n_chars}, {n_fields}")
-        print(len(fields_b), len(fields))
+        #print(f"checksums = {n_chars}, {n_fields}")
+        #print(len(fields_b), len(fields))
         if (
             len(fields_b) != PB840_CHECKSUM[0]
             or len(fields) != PB840_CHECKSUM[1]

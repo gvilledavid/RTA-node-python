@@ -80,7 +80,7 @@ class parser(parsers.parser.parser):
                 msg, result, self.success_count, self.total_count
             )
         else:
-            print("not connected, attempting...")
+            # print("not connected, attempting...")
             self.logger.info("not connected, attempting...")
             if not self.validate_hardware():
                 self.status = "DISCONNECTED"
@@ -134,7 +134,7 @@ class parser(parsers.parser.parser):
         diffs = {k: cp[k] for k in cp if not (k in lp and cp[k] == lp[k])}
 
         self.last_packet = msg
-        print("packet differences = ", diffs)
+        # print("packet differences = ", diffs)
 
     def send_message(self):
         # respect self.mode setting when building packet
@@ -148,18 +148,42 @@ class parser(parsers.parser.parser):
             # todo: refactor this mess
             if not err:
                 ts = str(int(time.time() * 1000))
+
+#                settings = ["TIME", "Mode", "SetRate", "SetFI02", "SetPEEP", "SetPSV", "SetP", "SetTi"]
+#                vitals = ["TotBrRate", "VTi", "MinVent", "PIP", "fspon"]
+                
+                settings = [
+                    "Mode",
+                    "SetRate",
+                    "SetFIO2",
+                    "SetPEEP",
+                    "SetPSV",
+                    "SetP",
+                    "SetTi",
+                ]
+                vitals = [
+                    "TotBrRate",
+                    "MinVent",
+                    "PIP",
+                    "VTe",
+                    "fspon",
+                ]
+
                 vit = {}
-                sets = {}
-                settings = ["TIME", "Mode", "SetRR", "SetFI02", "SetPEEP", "SetPSV"]
-                vitals = ["TotBrRate", "VT", "MinVent", "PIP", "fspon"]
-                # todo:do this before you convert to the legacy format
+                sets = {"VtID":"V60", "Type":"NON-INVASIVE", }
+#                sets = {"VtID":"V60", "Type":"NON-INVASIVE", "MType":"", "SType":"", "SetVT":"", "PFlow":"", "SetFlow":"", "PBW":"",}
+
                 for v in msg.get("l", []):
                     if v["n"] in vitals:
                         vit[v["n"]] = v["v"]
                     if v["n"] in settings:
                         sets[v["n"]] = v["v"]
+
+
+
                 # self.vitals_topic
                 # build message packets with their priority and send to leaf txQueue
+                vit["VTi"] = vit["VTe"]
                 vit["UID"] = self.UID
                 vit["Timestamp"] = ts
                 responses = []
@@ -227,18 +251,18 @@ class parser(parsers.parser.parser):
         if status == 0:
             self.check_deltas(msg)
             self.success_count += 1
-            print(
-                f"{self.success_count}/{self.total_count} Send at`{msg['v']}` to topic `{self.legacy_topic}`"
-            )
+            # print(
+            #   f"{self.success_count}/{self.total_count} Send at`{msg['v']}` to topic `{self.legacy_topic}`"
+            # )
             packets_since_last_failure = 0
             self._last_send = time.monotonic()
         else:
             self.packets_since_last_failure += 1
-            print(
-                f"{self.total_count-self.success_count}/{self.total_count} Failed to send message to topic {self.legacy_topic}"
-            )
+            # print(
+            #     f"{self.total_count-self.success_count}/{self.total_count} Failed to send message to topic {self.legacy_topic}"
+            # )
             if self.packets_since_last_failure > self._max_error_count:
-                print("Failed too many times, scanning baud rate...")
+                # print("Failed too many times, scanning baud rate...")
                 self.logger.info("Failed too many times, scanning baud rate...")
                 if not self.validate_hardware():
                     self.status = "DISCONNECTED"
@@ -249,15 +273,15 @@ class parser(parsers.parser.parser):
 if __name__ == "__main__":
     q = queue.PriorityQueue(maxsize=3)
     x = parsers.parser.import_parsers()
-    print(f"All parsers available: {x}")
-    p = x["V60"].parser(tty="ttyAMA2", parent="123", txQueue=q)
+    print(f"\nAll parsers available: {x}")
+    p = x["V60"].parser(tty="ttyAMA4", parent="123", txQueue=q)
     if p.validate_hardware():
         print("valid vent detected")
     p.loop_start()
     last_status = None
     while True:
         if q.not_empty:
-            print(f"\n\n\n\n\nRecieved {q.get()}\n\n\n\n\n")
+            print(f"\n\n\n\n\nReceived {q.get()}\n\n\n\n\n")
         time.sleep(0.1)
         if last_status != p.status:
             print("\n\n\n\n\n" + p.status + "\n\n\n\n\n")

@@ -120,7 +120,7 @@ class pulse:
             self.logger.debug("brief_run")
             starttime = time.time()
             hw = self.get_hardware()
-            self.rawpulse["ConnectedLeafs"] = hw["uarts"]
+            self.rawpulse["ConnectedLeafs"] = hw["UARTS"]
             self.rawpulse["Networking"] = self.get_networking()
             self.rawpulse["Timestamp"] = str(int(time.time() * 1000))
             self.pulse = self.to_json(self.rawpulse)

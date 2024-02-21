@@ -170,7 +170,7 @@ V60_BAUD_RATES = [9600, 19200, 115200]
 V60_CHECKSUM_SNDA = [706, 97]
 V60_CHECKSUM_VRPT = [988, 133]
 # PB840_CHECKSUM = [1225, 169]
-"""PB840_WEB_STRINGS = {
+PB840_WEB_STRINGS = {
     6: "VtID",
     8: "Type",
     9: "Mode",
@@ -199,29 +199,35 @@ V60_CHECKSUM_VRPT = [988, 133]
     87: "PEEP",
     92: "Raw",
     102: "NIF",
-}"""
+}
 
 V60_WEB_STRINGS_SNDA = {
     1: "TIME",
     5: "Mode",
-    6: "SetRR",
-    9: "SetFI02",
+    6: "SetRate",
+    9: "SetFIO2",
     11: "SetPEEP",
     22: "SetPSV",
     30: "TotBrRate",
-    31: "VT",
+    31: "VTe",
     32: "MinVent",
     34: "PIP",
+    81: "SetP",
+    82: "SetTi",
 }
+
+
+
+
 V60_WEB_STRINGS_VRPT = {
     1: "TIME",
     53: "Mode",
-    55: "SetRR",
-    64: "SetFI02",
+    55: "SetRate",
+    64: "SetFIO2",
     56: "SetPEEP",
     57: "SetPSV",
     81: "TotBrRate",
-    77: "VT",
+    77: "VTe",
     79: "MinVent",
     73: "PIP",
 }
