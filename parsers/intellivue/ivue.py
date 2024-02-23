@@ -279,9 +279,9 @@ class Intellivue:
             if message_type == None:
                 self.connected = False
                 break
-        self.logger.critical(
-            f"Closing, total uptime was {time.monotonic() - self.initiation_time:0.2f}"
-        )
+        # self.logger.critical(
+        #     f"Closing, total uptime was {time.monotonic() - self.initiation_time:0.2f}"
+        # )
         time.sleep(1)
         self.ser.socket.flushInput()
         self.ser.socket.flushOutput()
@@ -314,9 +314,9 @@ class Intellivue:
             self._error_count = self._error_count + 1
         elif self.state == 1:
             self._error_count = 0
-        self.logger.critical(
-            f"{time.monotonic() - self.initiation_time:0.2f} {message_type}"
-        )
+        # self.logger.critical(
+        #     f"{time.monotonic() - self.initiation_time:0.2f} {message_type}"
+        # )
         # if message type is critical root error then reconnect
         # print(self.decoder.readData(res))
         return res, message_type
@@ -379,10 +379,10 @@ class Intellivue:
                             }
                             self.vitals_dict["Timestamp"] = str(int(time.time() * 1000))
                             self.vitals_dict["UID"] = f"{self.UID}"
-                            print(
-                                time.monotonic() - self.last_packet,
-                                "since last success",
-                            )
+                            # print(
+                            #     time.monotonic() - self.last_packet,
+                            #     "since last success",
+                            # )
                             self.last_packet = time.monotonic()
                             self.successes += 1
                             return self.vitals_dict, False

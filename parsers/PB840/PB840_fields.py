@@ -24,6 +24,8 @@ PB840_WEB_STRINGS = {
     46: "SetP",
     47: "SetTi",
     60: "PBW",
+    96: "Cdyn",
+    97: "Rdyn",
     94: "Pplat",
     70: "TotBrRate",
     71: "VTe",

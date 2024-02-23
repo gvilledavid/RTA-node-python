@@ -204,7 +204,6 @@ class NodeManager:
                 if not leaf.proc_is_alive():
                     connection_type = leaf.connection_type
                     name = leaf.name
-                    del self.leafs[key]
                     self.leafs[key] = LeafProcessor(connection_type, name, self.UID)
                 elif not leaf.runner_is_alive():
                     leaf.start()
@@ -213,7 +212,6 @@ class NodeManager:
                         try:
                             priority, msg = leaf.recieve()
                             # TODO: using msg.topic, decide if it is an action you can act on
-                            print(msg)
                             for b in self.brokers:
                                 b.put(self.priority, msg)
                         except:

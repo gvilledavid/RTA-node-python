@@ -84,11 +84,11 @@ class V60_Packet_Creator:
         if self.VRPT_On:
             raw[54][1] = V60_MODEMAP[raw[54][1]]
             raw[77][1] = self.to_mL(raw[77][1])  # VT
-            raw[79][1] = self.to_mL(raw[79][1])  # MinVent
+            #raw[79][1] = self.to_mL(raw[79][1])  # MinVent
         else:
             raw[5][1] = V60_MODEMAP[raw[5][1]]
             raw[31][1] = self.to_mL(raw[31][1])  # VT
-            raw[32][1] = self.to_mL(raw[32][1])  # MinVent`
+            #raw[32][1] = self.to_mL(raw[32][1])  # MinVent`
 
     def set_webstrings(self, raw):
         """Convert important field IDs to named fields"""

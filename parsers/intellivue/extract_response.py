@@ -103,18 +103,18 @@ def getdata(d, acc, logger):
             for attribute in attributelist.keys():
                 # print(attribute)
                 if attribute == "NOM_ATTR_NU_VAL_OBS":
-                    print(
-                        "name=",
-                        attributelist[attribute]["AttributeValue"]["NuObsValue"][
-                            "SCADAType"
-                        ],
-                    )
-                    print(
-                        "data=",
-                        attributelist[attribute]["AttributeValue"]["NuObsValue"][
-                            "FLOATType"
-                        ],
-                    )
+                    # print(
+                    #     "name=",
+                    #     attributelist[attribute]["AttributeValue"]["NuObsValue"][
+                    #         "SCADAType"
+                    #     ],
+                    # )
+                    # print(
+                    #     "data=",
+                    #     attributelist[attribute]["AttributeValue"]["NuObsValue"][
+                    #         "FLOATType"
+                    #     ],
+                    # )
                     rolslist += [
                         attributelist[attribute]["AttributeValue"]["NuObsValue"]
                     ]
@@ -128,8 +128,6 @@ def getdata(d, acc, logger):
                     ]
                     # print(f"{values=}")
                     for val in values:
-                        print("name=", val["NuObsValue"]["SCADAType"])
-                        print("data=", val["NuObsValue"]["FLOATType"])
                         rolslist += [val["NuObsValue"]]
     # print(f"{rolslist=}")
     # getdata_old(d,acc)#why does this crash on ETco2?

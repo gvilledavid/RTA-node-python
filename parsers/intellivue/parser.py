@@ -83,7 +83,7 @@ class parser(parsers.parser.parser):
 
         self.last_packet = msg
         self.last_packet["last_time"] = time.time()
-        print("packet differences = ", diffs)
+        # print("packet differences = ", diffs)
 
     def poll(self):
         if self.intellivue.connected:
@@ -127,7 +127,7 @@ class parser(parsers.parser.parser):
         packet, err = self.intellivue.poll()
         responses = []
         if not err:
-            print(packet)
+            # print(packet)
             try:
                 self.queue.put(
                     (
@@ -174,13 +174,13 @@ class parser(parsers.parser.parser):
         status = result[0]
         if status == 0:
             success_count += 1
-            print(
-                f"{success_count}/{total_count} Send at`{msg['v']}` to topic `{self.vitals_topic}`"
-            )
-        else:
-            print(
-                f"{total_count-success_count}/{total_count} Failed to send message to topic {self.vitals_topic}"
-            )
+            # print(
+            #     f"{success_count}/{total_count} Send at`{msg['v']}` to topic `{self.vitals_topic}`"
+            # )
+        # else:
+        #     print(
+        #         f"{total_count-success_count}/{total_count} Failed to send message to topic {self.vitals_topic}"
+        #     )
         return success_count
 
     def _del(self):

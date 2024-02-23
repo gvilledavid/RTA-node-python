@@ -204,26 +204,28 @@ V60_CHECKSUM_VRPT = [988, 133]
 V60_WEB_STRINGS_SNDA = {
     1: "TIME",
     5: "Mode",
-    6: "SetRR",
-    9: "SetFI02",
+    6: "SetRate",
+    9: "SetFIO2",
     11: "SetPEEP",
     22: "SetPSV",
     30: "TotBrRate",
-    31: "VT",
+    31: "VTe",
     32: "MinVent",
     34: "PIP",
 }
 V60_WEB_STRINGS_VRPT = {
     1: "TIME",
     53: "Mode",
-    55: "SetRR",
-    64: "SetFI02",
+    55: "SetRate",
+    64: "SetFIO2",
     56: "SetPEEP",
     57: "SetPSV",
     81: "TotBrRate",
-    77: "VT",
+    77: "VTe",
     79: "MinVent",
     73: "PIP",
+    81: "SetP",
+    82: "SetTi",
 }
 
 V60_ALARMS_SNDA = {

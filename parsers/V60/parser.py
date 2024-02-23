@@ -80,7 +80,6 @@ class parser(parsers.parser.parser):
                 msg, result, self.success_count, self.total_count
             )
         else:
-            print("not connected, attempting...")
             self.logger.info("not connected, attempting...")
             if not self.validate_hardware():
                 self.status = "DISCONNECTED"
@@ -134,7 +133,6 @@ class parser(parsers.parser.parser):
         diffs = {k: cp[k] for k in cp if not (k in lp and cp[k] == lp[k])}
 
         self.last_packet = msg
-        print("packet differences = ", diffs)
 
     def send_message(self):
         # respect self.mode setting when building packet
@@ -148,10 +146,27 @@ class parser(parsers.parser.parser):
             # todo: refactor this mess
             if not err:
                 ts = str(int(time.time() * 1000))
+
+                settings = [
+                    "Mode",
+                    "SetRate",
+                    "SetFIO2",
+                    "SetPEEP",
+                    "SetPSV",
+                    "SetP",
+                    "SetTi",
+                ]
+                vitals = [
+                    "TotBrRate",
+                    "MinVent",
+                    "PIP",
+                    "VTe",
+                    "fspon",
+                ]
+
                 vit = {}
-                sets = {}
-                settings = ["TIME", "Mode", "SetRR", "SetFI02", "SetPEEP", "SetPSV"]
-                vitals = ["TotBrRate", "VT", "MinVent", "PIP", "fspon"]
+                sets = {"VtID":"V60", "Type":"NON-INVASIVE", }
+                
                 # todo:do this before you convert to the legacy format
                 for v in msg.get("l", []):
                     if v["n"] in vitals:
@@ -160,6 +175,7 @@ class parser(parsers.parser.parser):
                         sets[v["n"]] = v["v"]
                 # self.vitals_topic
                 # build message packets with their priority and send to leaf txQueue
+                vit["VTi"] = vit["VTe"]
                 vit["UID"] = self.UID
                 vit["Timestamp"] = ts
                 responses = []
@@ -227,18 +243,11 @@ class parser(parsers.parser.parser):
         if status == 0:
             self.check_deltas(msg)
             self.success_count += 1
-            print(
-                f"{self.success_count}/{self.total_count} Send at`{msg['v']}` to topic `{self.legacy_topic}`"
-            )
             packets_since_last_failure = 0
             self._last_send = time.monotonic()
         else:
             self.packets_since_last_failure += 1
-            print(
-                f"{self.total_count-self.success_count}/{self.total_count} Failed to send message to topic {self.legacy_topic}"
-            )
             if self.packets_since_last_failure > self._max_error_count:
-                print("Failed too many times, scanning baud rate...")
                 self.logger.info("Failed too many times, scanning baud rate...")
                 if not self.validate_hardware():
                     self.status = "DISCONNECTED"

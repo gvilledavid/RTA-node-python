@@ -204,7 +204,7 @@ class parser:
                 if valid:
                     self.baud = self.serial_info["brate"]
                     return True
-        self.logger.error("no valid baud rate found")
+        self.logger.error("No valid baud found for {self.name}")
         return False
 
     def validate_packet(self, dg):
